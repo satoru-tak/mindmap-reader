@@ -56,6 +56,7 @@ export default function Canvas() {
   const map = useStore((s) => (s.currentMapId ? s.maps[s.currentMapId] : null))
   const selectedId = useStore((s) => s.selectedId)
   const fitToken = useStore((s) => s.fitToken)
+  const centerToken = useStore((s) => s.centerToken)
   const draft = useStore((s) => s.draft)
   const editingId = useStore((s) => s.editingId)
   const drag = useStore((s) => s.drag)
@@ -162,6 +163,18 @@ export default function Canvas() {
     return () => clearTimeout(t)
   }, [fitToken, map?.id, fitView])
 
+  // "中心へ": bring the title to the middle of the screen, keeping the zoom level.
+  useEffect(() => {
+    if (!centerToken || !map) return
+    const root = flowNodes.find((f) => f.id === map.rootId)
+    if (!root) return
+    setCenter(root.position.x + (root.width ?? 0) / 2, root.position.y + (root.height ?? 0) / 2, {
+      zoom: getViewport().zoom,
+      duration: DURATION,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [centerToken])
+
   // Keep the selected node on screen while moving with the keyboard / adding nodes.
   useEffect(() => {
     if (!selectedId || !wrapper.current) return
@@ -267,7 +280,11 @@ export default function Canvas() {
         onNodeDragStart={onNodeDragStart}
         onNodeDrag={onNodeDrag}
         onNodeDragStop={onNodeDragStop}
-        onPaneClick={() => useStore.getState().select(null)}
+        onPaneClick={() => {
+          const st = useStore.getState()
+          st.select(null)
+          if (st.helpOpen) st.setHelpOpen(false)
+        }}
         deleteKeyCode={null}
         selectionKeyCode={null}
         multiSelectionKeyCode={null}

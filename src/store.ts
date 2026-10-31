@@ -98,6 +98,12 @@ interface State {
   undo: () => void
   redo: () => void
   requestFit: () => void
+  /** bumps when the view should be centred on the title */
+  centerToken: number
+  /** select the title and bring it to the middle of the screen */
+  goHome: () => void
+  helpOpen: boolean
+  setHelpOpen: (open: boolean) => void
 }
 
 const cloneNodes = (nodes: NodeRecord): NodeRecord => {
@@ -159,6 +165,22 @@ export const useStore = create<State>((set, get) => {
     past: [],
     future: [],
     fitToken: 0,
+    centerToken: 0,
+    helpOpen: (() => {
+      try {
+        return localStorage.getItem('mindmap-reader:help') !== 'closed'
+      } catch {
+        return true
+      }
+    })(),
+    setHelpOpen: (open) => {
+      try {
+        localStorage.setItem('mindmap-reader:help', open ? 'open' : 'closed')
+      } catch {
+        /* ignore */
+      }
+      set({ helpOpen: open })
+    },
     lastAddedId: null,
     draft: null,
     drag: null,
@@ -406,6 +428,11 @@ export const useStore = create<State>((set, get) => {
     },
 
     requestFit: () => set((s) => ({ fitToken: s.fitToken + 1 })),
+    goHome: () => {
+      const map = current()
+      if (!map) return
+      set((s) => ({ selectedId: map.rootId, editingId: null, centerToken: s.centerToken + 1 }))
+    },
   }
 })
 

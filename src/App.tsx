@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import Canvas from './Canvas'
@@ -28,6 +28,10 @@ function useKeyboard() {
         return s.redo()
       }
       if (mod) return
+      if (['Home', 'h', 'H'].includes(e.key)) {
+        e.preventDefault()
+        return s.goHome()
+      }
       if (!s.selectedId) {
         if (['Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
           e.preventDefault()
@@ -44,6 +48,9 @@ function useKeyboard() {
         Delete: () => s.deleteNode(),
         Backspace: () => s.deleteNode(),
         '/': () => s.toggleCollapse(),
+        Home: () => s.goHome(),
+        h: () => s.goHome(),
+        H: () => s.goHome(),
         ArrowLeft: () => s.navigate('left', nav),
         ArrowRight: () => s.navigate('right', nav),
         ArrowUp: () => s.navigate('up', nav),
@@ -96,6 +103,9 @@ function Toolbar() {
           ↷
         </button>
         <span className="sep" />
+        <button onClick={s.goHome} title="中心に戻る (H)">
+          中心へ
+        </button>
         <button onClick={s.requestFit} title="全体を表示">
           全体表示
         </button>
@@ -105,21 +115,8 @@ function Toolbar() {
 }
 
 function Help() {
-  const [open, setOpenState] = useState(() => {
-    try {
-      return localStorage.getItem('mindmap-reader:help') !== 'closed'
-    } catch {
-      return true
-    }
-  })
-  const setOpen = (v: boolean) => {
-    setOpenState(v)
-    try {
-      localStorage.setItem('mindmap-reader:help', v ? 'open' : 'closed')
-    } catch {
-      /* ignore */
-    }
-  }
+  const open = useStore((s) => s.helpOpen)
+  const setOpen = useStore.getState().setHelpOpen
   if (!open)
     return (
       <button className="help-toggle" onClick={() => setOpen(true)}>
@@ -151,6 +148,8 @@ function Help() {
         <dd>同じ階層の上下（親をまたぐ）</dd>
         <dt>{ALT}+↑ / ↓</dt>
         <dd>階層に関係なく、画面上ですぐ上・下へ</dd>
+        <dt>H / Home</dt>
+        <dd>中心（タイトル）に戻る</dd>
         <dt>Shift+←</dt>
         <dd>枝の先頭へ（もう一度でタイトル）</dd>
         <dt>Shift+→</dt>
@@ -166,7 +165,7 @@ function Help() {
         <dt>ドラッグ</dt>
         <dd>別のノードに重ねて離すと、その下に移動</dd>
       </dl>
-      <p className="help-note">保存は自動です。データはこのブラウザ内にだけ保存されます。</p>
+      <p className="help-note">保存は自動です。データはこのブラウザ内にだけ保存されます。背景をクリックすると、この一覧は閉じます。</p>
     </aside>
   )
 }
