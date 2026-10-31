@@ -5,6 +5,7 @@ import Canvas from './Canvas'
 import Sidebar from './Sidebar'
 import { useStore } from './store'
 import { MODE_LABEL, type MapMode } from './types'
+import { filterPageInput } from './page'
 import './App.css'
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
@@ -193,10 +194,14 @@ function ReadingBar() {
             id="page-input"
             value={page}
             disabled={!editable}
-            placeholder={editable ? '42 / 42-45' : ''}
+            placeholder={editable ? '42 / 42-45 / 12, 15' : ''}
             inputMode="numeric"
             title="P で入力"
-            onChange={(e) => setPage(e.target.value)}
+            onChange={(e) =>
+              // don't touch the text mid-conversion (Japanese IME); tidy it once confirmed
+              setPage((e.nativeEvent as InputEvent).isComposing ? e.target.value : filterPageInput(e.target.value))
+            }
+            onCompositionEnd={(e) => setPage(filterPageInput(e.currentTarget.value))}
             onBlur={commit}
             onKeyDown={(e) => {
               if (e.nativeEvent.isComposing || e.keyCode === 229) return

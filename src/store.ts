@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { MapMode, MindMap, MindNodeData, NodeRecord } from './types'
 import { loadState, saveState } from './storage'
+import { normalizePage } from './page'
 
 const HISTORY_LIMIT = 100
 
@@ -463,7 +464,7 @@ export const useStore = create<State>((set, get) => {
 
     setPage: (id, page) => {
       const map = current()
-      const clean = page.trim().replace(/^p\.?\s*/i, '').replace(/[〜~ー－]/g, '-')
+      const clean = normalizePage(page)
       if (!map?.nodes[id] || (map.nodes[id].page ?? '') === clean) return
       mutate((nodes) => {
         if (clean) nodes[id].page = clean
