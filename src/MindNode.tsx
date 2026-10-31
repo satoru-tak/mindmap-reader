@@ -11,6 +11,8 @@ export type MindFlowNode = Node<
     childCount: number
     collapsed: boolean
     hiddenCount: number
+    page?: string
+    quote?: boolean
   },
   'mind'
 >
@@ -27,7 +29,7 @@ function MindNodeView({ id, data, width, height }: NodeProps<MindFlowNode>) {
 
   return (
     <div
-      className={`mind-node depth-${Math.min(data.depth, 2)}${selected ? ' selected' : ''}${editing ? ' editing' : ''} ${dropState}`}
+      className={`mind-node depth-${Math.min(data.depth, 2)}${selected ? ' selected' : ''}${editing ? ' editing' : ''}${data.quote ? ' quote' : ''} ${dropState}`}
       style={
         {
           width,
@@ -48,6 +50,8 @@ function MindNodeView({ id, data, width, height }: NodeProps<MindFlowNode>) {
     >
       <Handle type="target" position={Position.Left} className="mind-handle" isConnectable={false} />
       {dropState === 'drop-target' && <span className="drop-badge">ここに移動</span>}
+      <div className="mind-body">
+      {data.quote && <span className="quote-mark" aria-label="引用">“</span>}
       {editing ? (
         <NodeEditor
           initial={data.text}
@@ -64,6 +68,8 @@ function MindNodeView({ id, data, width, height }: NodeProps<MindFlowNode>) {
           {data.text || (isRoot ? 'タイトル' : '（空）')}
         </div>
       )}
+      {data.page && <span className="page-badge">p.{data.page}</span>}
+      </div>
       {data.childCount > 0 && (
         <button
           className="collapse-btn nodrag"
@@ -100,7 +106,8 @@ function NodeEditor({
     const el = ref.current
     if (!el) return
     el.focus()
-    el.select()
+    if (useStore.getState().editCaretEnd) el.setSelectionRange(el.value.length, el.value.length)
+    else el.select()
   }, [])
 
   // keep textarea height in sync with content

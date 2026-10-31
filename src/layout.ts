@@ -27,10 +27,20 @@ function measureLine(text: string, size: number, weight: number) {
 }
 
 /** Estimate the rendered size of a node so the tree can be laid out before React renders it. */
-export function measureNode(text: string, depth: number, maxWidth = MAX_WIDTH, editing = false) {
+export const QUOTE_EXTRA = 18 // room for the “ mark of a quote
+export const PAGE_FONT = 11
+
+/** extra width taken by reading-mode decorations (quote mark, page badge) */
+export function readingExtra(page: string | undefined, quote: boolean) {
+  let w = quote ? QUOTE_EXTRA : 0
+  if (page) w += measureLine('p.' + page, PAGE_FONT, 600) + 18
+  return Math.ceil(w)
+}
+
+export function measureNode(text: string, depth: number, maxWidth = MAX_WIDTH, editing = false, extra = 0) {
   const { size, weight } = fontFor(depth)
   const lineHeight = Math.round(size * 1.45)
-  const inner = maxWidth - PAD_X * 2
+  const inner = maxWidth - PAD_X * 2 - extra
   const lines = (text || '　').split('\n')
   let width = 0
   let lineCount = 0
@@ -41,7 +51,7 @@ export function measureNode(text: string, depth: number, maxWidth = MAX_WIDTH, e
   }
   return {
     // editing: leave room for the caret and one more character so text never wraps early
-    width: Math.max(editing ? 120 : MIN_WIDTH, Math.ceil(width) + PAD_X * 2 + 2 + (editing ? size + 4 : 0)),
+    width: Math.max(editing ? 120 : MIN_WIDTH, Math.ceil(width) + PAD_X * 2 + 2 + extra + (editing ? size + 4 : 0)),
     height: lineCount * lineHeight + PAD_Y * 2 + 2,
   }
 }
@@ -64,6 +74,7 @@ export function layoutTree(
   nodes: NodeRecord,
   rootId: string,
   editing?: { id: string; text: string } | null,
+  showReading = false,
 ): LaidOutNode[] {
   const out: LaidOutNode[] = []
   const sizes = new Map<string, { width: number; height: number }>()
@@ -72,10 +83,12 @@ export function layoutTree(
   const visibleChildren = (id: string) => (nodes[id].collapsed ? [] : nodes[id].children)
 
   const measure = (id: string, depth: number): number => {
+    const n = nodes[id]
+    const extra = showReading && depth > 0 ? readingExtra(n.page, n.kind === 'quote') : 0
     const size =
       editing && editing.id === id
-        ? measureNode(editing.text, depth, EDIT_MAX_WIDTH, true)
-        : measureNode(nodes[id].text, depth)
+        ? measureNode(editing.text, depth, EDIT_MAX_WIDTH, true, extra)
+        : measureNode(n.text, depth, MAX_WIDTH, false, extra)
     sizes.set(id, size)
     const kids = visibleChildren(id)
     let kidsHeight = 0

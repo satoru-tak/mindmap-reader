@@ -1,14 +1,23 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import Canvas from './Canvas'
 import Sidebar from './Sidebar'
 import { useStore } from './store'
+import { MODE_LABEL, type MapMode } from './types'
 import './App.css'
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 const MOD = isMac ? '⌘' : 'Ctrl'
 const ALT = isMac ? 'Option' : 'Alt'
+
+function focusPageInput() {
+  const el = document.getElementById('page-input') as HTMLInputElement | null
+  if (el && !el.disabled) {
+    el.focus()
+    el.select()
+  }
+}
 
 function useKeyboard() {
   useEffect(() => {
@@ -32,6 +41,10 @@ function useKeyboard() {
         e.preventDefault()
         return s.goHome()
       }
+      if ((e.key === 'c' || e.key === 'C') && s.maps[s.currentMapId!]?.mode === 'reading') {
+        e.preventDefault()
+        return s.addChapter()
+      }
       if (!s.selectedId) {
         if (['Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
           e.preventDefault()
@@ -40,6 +53,7 @@ function useKeyboard() {
         return
       }
       const nav = e.shiftKey ? 'shift' : e.altKey ? 'alt' : 'none'
+      const reading = s.maps[s.currentMapId!]?.mode === 'reading'
       const map: Record<string, () => void> = {
         Tab: () => s.addChild(),
         Enter: () => s.addSibling(),
@@ -49,6 +63,12 @@ function useKeyboard() {
         Backspace: () => s.deleteNode(),
         '/': () => s.toggleCollapse(),
         Home: () => s.goHome(),
+        q: () => reading && s.toggleQuote(),
+        Q: () => reading && s.toggleQuote(),
+        p: () => reading && focusPageInput(),
+        P: () => reading && focusPageInput(),
+        c: () => reading && s.addChapter(),
+        C: () => reading && s.addChapter(),
         h: () => s.goHome(),
         H: () => s.goHome(),
         ArrowLeft: () => s.navigate('left', nav),
@@ -79,7 +99,20 @@ function Toolbar() {
   return (
     <header className="toolbar">
       <div className="toolbar-title">
-        <span className={`mode-badge ${mode}`}>{mode === 'reading' ? '読書' : '自由'}</span>
+        <div className="mode-switch" role="radiogroup" aria-label="モード">
+          {(['reading', 'free'] as MapMode[]).map((m) => (
+            <button
+              key={m}
+              role="radio"
+              aria-checked={mode === m}
+              className={mode === m ? `on ${m}` : ''}
+              onClick={() => s.setMode(m)}
+              title={m === 'reading' ? 'ページ番号・引用・章の型が使えます' : '余計な項目のない普通のマップ'}
+            >
+              {MODE_LABEL[m]}
+            </button>
+          ))}
+        </div>
         <h1>{title || '無題'}</h1>
       </div>
       <div className="toolbar-actions">
@@ -111,6 +144,78 @@ function Toolbar() {
         </button>
       </div>
     </header>
+  )
+}
+
+/** Reading-mode bar: kind (自分の言葉 / 引用), page number, and ＋章. */
+function ReadingBar() {
+  const map = useStore((s) => (s.currentMapId ? s.maps[s.currentMapId] : null))
+  const selectedId = useStore((s) => s.selectedId)
+  const n = map && selectedId ? map.nodes[selectedId] : null
+  const editable = !!n && n.id !== map?.rootId
+  const s = useStore.getState()
+  const [page, setPage] = useState('')
+  useEffect(() => setPage(n?.page ?? ''), [n?.id, n?.page])
+  if (!map || map.mode !== 'reading') return null
+
+  const commit = () => editable && s.setPage(n!.id, page)
+  return (
+    <div className="reading-bar">
+      <div className={`reading-fields${editable ? '' : ' disabled'}`}>
+        <span className="label">種類</span>
+        <div className="seg" role="radiogroup" aria-label="種類">
+          <button
+            role="radio"
+            aria-checked={editable && n!.kind !== 'quote'}
+            className={editable && n!.kind !== 'quote' ? 'on' : ''}
+            disabled={!editable}
+            onClick={() => n!.kind === 'quote' && s.toggleQuote(n!.id)}
+          >
+            自分の言葉
+          </button>
+          <button
+            role="radio"
+            aria-checked={editable && n!.kind === 'quote'}
+            className={editable && n!.kind === 'quote' ? 'on quote' : ''}
+            disabled={!editable}
+            onClick={() => n!.kind !== 'quote' && s.toggleQuote(n!.id)}
+            title="Q で切り替え"
+          >
+            “ 引用
+          </button>
+        </div>
+        <label className="label" htmlFor="page-input">
+          ページ
+        </label>
+        <span className="page-field">
+          p.
+          <input
+            id="page-input"
+            value={page}
+            disabled={!editable}
+            placeholder={editable ? '42 / 42-45' : ''}
+            inputMode="numeric"
+            title="P で入力"
+            onChange={(e) => setPage(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.nativeEvent.isComposing || e.keyCode === 229) return
+              if (e.key === 'Enter') {
+                commit()
+                ;(e.target as HTMLInputElement).blur()
+              } else if (e.key === 'Escape') {
+                setPage(n?.page ?? '')
+                setTimeout(() => (e.target as HTMLInputElement).blur())
+              }
+            }}
+          />
+        </span>
+        {!editable && <span className="hint">ノードを選ぶと、種類とページを設定できます</span>}
+      </div>
+      <button className="chapter-btn" onClick={s.addChapter} title="C で追加">
+        ＋ 章を追加
+      </button>
+    </div>
   )
 }
 
@@ -156,6 +261,12 @@ function Help() {
         <dd>枝の先端へ（来た道をたどる）</dd>
         <dt>Shift+↑ / ↓</dt>
         <dd>兄弟の先頭 ／ 末尾へ</dd>
+        <dt>Q</dt>
+        <dd>引用 ⇄ 自分の言葉（読書モード）</dd>
+        <dt>P</dt>
+        <dd>ページ番号を入力（読書モード）</dd>
+        <dt>C</dt>
+        <dd>章を追加（読書モード）</dd>
         <dt>/</dt>
         <dd>折りたたみ・展開</dd>
         <dt>Delete</dt>
@@ -178,6 +289,7 @@ export default function App() {
         <Sidebar />
         <main className="main">
           <Toolbar />
+          <ReadingBar />
           <Canvas />
           <Help />
         </main>

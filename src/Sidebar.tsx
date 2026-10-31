@@ -18,7 +18,7 @@ export default function Sidebar() {
         <button className="primary" onClick={() => createMap('reading')}>
           ＋ 読書マップ
         </button>
-        <button onClick={() => createMap('free')}>＋ 自由マップ</button>
+        <button onClick={() => createMap('free')}>＋ シンプルマップ</button>
       </div>
       <ul className="map-list">
         {list.map((m) => (

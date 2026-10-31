@@ -14,18 +14,33 @@ function node(text: string, parentId: string | null): MindNodeData {
 }
 
 /** Build a new map from a template. Reading mode gives a book-shaped skeleton. */
+const CHAPTER_RE = /^第\s*\d+\s*章/
+
+/** A chapter with the reading template under it: 要点 / 引用 / 気づき. Returns the chapter node. */
+function makeChapter(nodes: NodeRecord, parentId: string, num: number): MindNodeData {
+  const ch = node(`第${num}章`, parentId)
+  nodes[ch.id] = ch
+  for (const t of ['要点', '引用', '気づき']) {
+    const c = node(t, ch.id)
+    nodes[c.id] = c
+    ch.children.push(c.id)
+  }
+  return ch
+}
+
 function createMapFromTemplate(mode: MapMode): MindMap {
   const now = Date.now()
   const nodes: NodeRecord = {}
   const rootText = mode === 'reading' ? '本のタイトル' : '中心テーマ'
   const root = node(rootText, null)
   nodes[root.id] = root
-  const childTexts =
-    mode === 'reading' ? ['第1章', '気づき・感想', '行動に移すこと'] : ['アイデア1', 'アイデア2']
-  for (const t of childTexts) {
-    const c = node(t, root.id)
-    nodes[c.id] = c
-    root.children.push(c.id)
+  if (mode === 'reading') {
+    root.children.push(makeChapter(nodes, root.id, 1).id)
+    for (const t of ['気づき・感想', '行動に移すこと']) {
+      const c = node(t, root.id)
+      nodes[c.id] = c
+      root.children.push(c.id)
+    }
   }
   return { id: uid(), title: rootText, mode, rootId: root.id, nodes, createdAt: now, updatedAt: now }
 }
@@ -98,6 +113,16 @@ interface State {
   undo: () => void
   redo: () => void
   requestFit: () => void
+  /** switch the current map between 読書 and シンプル (reading data is kept, only hidden) */
+  setMode: (mode: MapMode) => void
+  /** reading mode: set the page number(s) of a node ('' clears it) */
+  setPage: (id: string, page: string) => void
+  /** reading mode: toggle 引用 ⇄ 自分の言葉 */
+  toggleQuote: (id?: string) => void
+  /** reading mode: add the next chapter (with 要点 / 引用 / 気づき) under the title */
+  addChapter: () => void
+  /** true: the editor puts the caret at the end instead of selecting all text */
+  editCaretEnd: boolean
   /** bumps when the view should be centred on the title */
   centerToken: number
   /** select the title and bring it to the middle of the screen */
@@ -166,6 +191,7 @@ export const useStore = create<State>((set, get) => {
     future: [],
     fitToken: 0,
     centerToken: 0,
+    editCaretEnd: false,
     helpOpen: (() => {
       try {
         return localStorage.getItem('mindmap-reader:help') !== 'closed'
@@ -194,6 +220,7 @@ export const useStore = create<State>((set, get) => {
         currentMapId: map.id,
         selectedId: map.rootId,
         editingId: map.rootId, // start typing the title right away
+        editCaretEnd: false,
         past: [],
         future: [],
         fitToken: s.fitToken + 1,
@@ -231,7 +258,7 @@ export const useStore = create<State>((set, get) => {
       }),
 
     select: (id) => set({ selectedId: id }),
-    startEdit: (id) => set({ selectedId: id, editingId: id, draft: null }),
+    startEdit: (id) => set({ selectedId: id, editingId: id, draft: null, editCaretEnd: false }),
     stopEdit: () => set({ editingId: null, draft: null }),
 
     addChild: (id) => {
@@ -243,7 +270,7 @@ export const useStore = create<State>((set, get) => {
         nodes[c.id] = c
         parent.children.push(c.id)
         parent.collapsed = false
-        return { selectedId: c.id, editingId: c.id, lastAddedId: c.id, draft: null }
+        return { selectedId: c.id, editingId: c.id, lastAddedId: c.id, draft: null, editCaretEnd: false }
       })
     },
 
@@ -257,7 +284,7 @@ export const useStore = create<State>((set, get) => {
         const c = node('', parent.id)
         nodes[c.id] = c
         parent.children.splice(parent.children.indexOf(target) + 1, 0, c.id)
-        return { selectedId: c.id, editingId: c.id, lastAddedId: c.id, draft: null }
+        return { selectedId: c.id, editingId: c.id, lastAddedId: c.id, draft: null, editCaretEnd: false }
       })
     },
 
@@ -287,7 +314,7 @@ export const useStore = create<State>((set, get) => {
           nodes[id].text = text
         }, false)
       } else get().updateText(id, text)
-      set({ editingId: null, lastAddedId: null, draft: null })
+      set({ editingId: null, lastAddedId: null, draft: null, editCaretEnd: false })
     },
 
     deleteNode: (id) => {
@@ -428,6 +455,50 @@ export const useStore = create<State>((set, get) => {
     },
 
     requestFit: () => set((s) => ({ fitToken: s.fitToken + 1 })),
+    setMode: (mode) => {
+      const { maps, currentMapId } = get()
+      if (!currentMapId || maps[currentMapId].mode === mode) return
+      set({ maps: { ...maps, [currentMapId]: { ...maps[currentMapId], mode, updatedAt: Date.now() } } })
+    },
+
+    setPage: (id, page) => {
+      const map = current()
+      const clean = page.trim().replace(/^p\.?\s*/i, '').replace(/[〜~ー－]/g, '-')
+      if (!map?.nodes[id] || (map.nodes[id].page ?? '') === clean) return
+      mutate((nodes) => {
+        if (clean) nodes[id].page = clean
+        else delete nodes[id].page
+      })
+    },
+
+    toggleQuote: (id) => {
+      const target = id ?? get().selectedId
+      const map = current()
+      if (!target || !map || target === map.rootId) return
+      mutate((nodes) => {
+        if (nodes[target].kind === 'quote') delete nodes[target].kind
+        else nodes[target].kind = 'quote'
+      })
+    },
+
+    addChapter: () => {
+      const map = current()
+      if (!map) return
+      const root = map.nodes[map.rootId]
+      const chapters = root.children.filter((c) => CHAPTER_RE.test(map.nodes[c].text))
+      mutate((nodes) => {
+        const nums = chapters.map((c) => Number(map.nodes[c].text.match(/\d+/)?.[0] ?? 0))
+        const ch = makeChapter(nodes, map.rootId, Math.max(0, ...nums) + 1)
+        const r = nodes[map.rootId]
+        // place it right after the last chapter (before 気づき・感想 etc.)
+        const after = chapters.length ? r.children.indexOf(chapters[chapters.length - 1]) + 1 : 0
+        r.children.splice(after, 0, ch.id)
+        r.collapsed = false
+        // edit the chapter title with the caret at the end, ready to type its name
+        return { selectedId: ch.id, editingId: ch.id, draft: null, editCaretEnd: true, lastAddedId: null }
+      })
+    },
+
     goHome: () => {
       const map = current()
       if (!map) return

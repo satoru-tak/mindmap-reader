@@ -69,7 +69,8 @@ export default function Canvas() {
   // Auto layout is the source of truth for positions.
   const { flowNodes, edges } = useMemo(() => {
     if (!map) return { flowNodes: [] as MindFlowNode[], edges: [] as Edge[] }
-    const laid = layoutTree(map.nodes, map.rootId, editingText)
+    const showReading = map.mode === 'reading'
+    const laid = layoutTree(map.nodes, map.rootId, editingText, showReading)
     const cache = new Map<string, NodePos>()
     for (const l of laid) cache.set(l.id, { x: l.x, y: l.y, height: l.height, depth: l.depth })
     setLayoutCache(cache)
@@ -90,6 +91,8 @@ export default function Canvas() {
           childCount: n.children.length,
           collapsed: n.collapsed,
           hiddenCount: n.collapsed ? countDescendants(map.nodes, l.id) : 0,
+          page: showReading && l.depth > 0 ? n.page : undefined,
+          quote: showReading && l.depth > 0 && n.kind === 'quote',
         },
       }
     })
