@@ -59,7 +59,7 @@ export default function Canvas() {
   const draft = useStore((s) => s.draft)
   const editingId = useStore((s) => s.editingId)
   const drag = useStore((s) => s.drag)
-  const { fitView, getIntersectingNodes, getViewport, setCenter } = useReactFlow()
+  const { fitView, getViewport, setCenter, screenToFlowPosition } = useReactFlow()
   const wrapper = useRef<HTMLDivElement>(null)
 
   // While editing, lay out with the live text so the node grows sideways and neighbours make room.
@@ -182,25 +182,38 @@ export default function Canvas() {
     }
   }, [selectedId, flowNodes, getViewport, setCenter])
 
-  /** Which node is the dragged node over (largest overlap), and may it be dropped there? */
+  /**
+   * Which node should become the new parent?
+   * 1. the node under the mouse pointer
+   * 2. the node under the dragged node's left edge (its "connector" side)
+   * 3. the node the dragged node overlaps the most
+   */
   const findTarget = useCallback(
-    (dragged: MindFlowNode): DragState => {
+    (dragged: MindFlowNode, pointer: { x: number; y: number } | null): DragState => {
       const base: DragState = { draggingId: dragged.id, targetId: null, blocked: null }
       if (!map) return base
-      const box = {
-        x: dragged.position.x,
-        y: dragged.position.y,
-        w: dragged.width ?? 0,
-        h: dragged.height ?? 0,
-      }
-      let best: MindFlowNode | null = null
-      let bestArea = 0
-      for (const h of getIntersectingNodes(dragged) as MindFlowNode[]) {
-        if (h.id === dragged.id) continue
-        const area = overlapArea(box, { x: h.position.x, y: h.position.y, w: h.width ?? 0, h: h.height ?? 0 })
-        if (area > bestArea) {
-          bestArea = area
-          best = h
+      // other nodes don't move during a drag, so their layout boxes are reliable
+      const candidates = flowNodes.filter((f) => f.id !== dragged.id)
+      const contains = (f: MindFlowNode, pt: { x: number; y: number }, pad = 6) =>
+        pt.x >= f.position.x - pad &&
+        pt.x <= f.position.x + (f.width ?? 0) + pad &&
+        pt.y >= f.position.y - pad &&
+        pt.y <= f.position.y + (f.height ?? 0) + pad
+      const w = dragged.width ?? 0
+      const h = dragged.height ?? 0
+      const leftEdge = { x: dragged.position.x + 6, y: dragged.position.y + h / 2 }
+
+      let best: MindFlowNode | undefined =
+        (pointer && candidates.find((f) => contains(f, pointer))) || candidates.find((f) => contains(f, leftEdge))
+      if (!best) {
+        const box = { x: dragged.position.x, y: dragged.position.y, w, h }
+        let bestArea = 0
+        for (const f of candidates) {
+          const area = overlapArea(box, { x: f.position.x, y: f.position.y, w: f.width ?? 0, h: f.height ?? 0 })
+          if (area > bestArea) {
+            bestArea = area
+            best = f
+          }
         }
       }
       if (!best) return base
@@ -208,7 +221,15 @@ export default function Canvas() {
       if (map.nodes[dragged.id].parentId === best.id) return { ...base, targetId: best.id, blocked: 'same-parent' }
       return { ...base, targetId: best.id }
     },
-    [getIntersectingNodes, map],
+    [flowNodes, map],
+  )
+
+  const pointerOf = useCallback(
+    (e: MouseEvent | TouchEvent | React.MouseEvent) => {
+      const pt = 'touches' in e ? (e.touches[0] ?? e.changedTouches?.[0]) : e
+      return pt ? screenToFlowPosition({ x: pt.clientX, y: pt.clientY }) : null
+    },
+    [screenToFlowPosition],
   )
 
   const onNodeDragStart: OnNodeDrag<MindFlowNode> = useCallback((_e, n) => {
@@ -217,23 +238,23 @@ export default function Canvas() {
   }, [])
 
   const onNodeDrag: OnNodeDrag<MindFlowNode> = useCallback(
-    (_e, dragged) => {
-      const next = findTarget(dragged)
+    (e, dragged) => {
+      const next = findTarget(dragged, pointerOf(e))
       const cur = useStore.getState().drag
       if (!cur || cur.targetId !== next.targetId || cur.blocked !== next.blocked) useStore.getState().setDrag(next)
     },
-    [findTarget],
+    [findTarget, pointerOf],
   )
 
   // Drop onto a node to make it the new parent. Otherwise the node snaps back to its place.
   const onNodeDragStop: OnNodeDrag<MindFlowNode> = useCallback(
-    (_e, dragged) => {
-      const result = findTarget(dragged)
+    (e, dragged) => {
+      const result = findTarget(dragged, pointerOf(e))
       useStore.getState().setDrag(null)
       if (result.targetId && !result.blocked) useStore.getState().moveNode(dragged.id, result.targetId)
       setNodes(flowNodes)
     },
-    [findTarget, setNodes, flowNodes],
+    [findTarget, pointerOf, setNodes, flowNodes],
   )
 
   return (

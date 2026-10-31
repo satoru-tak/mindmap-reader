@@ -8,6 +8,7 @@ import './App.css'
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 const MOD = isMac ? '⌘' : 'Ctrl'
+const ALT = isMac ? 'Option' : 'Alt'
 
 function useKeyboard() {
   useEffect(() => {
@@ -34,6 +35,7 @@ function useKeyboard() {
         }
         return
       }
+      const nav = e.shiftKey ? 'shift' : e.altKey ? 'alt' : 'none'
       const map: Record<string, () => void> = {
         Tab: () => s.addChild(),
         Enter: () => s.addSibling(),
@@ -42,10 +44,10 @@ function useKeyboard() {
         Delete: () => s.deleteNode(),
         Backspace: () => s.deleteNode(),
         '/': () => s.toggleCollapse(),
-        ArrowLeft: () => s.navigate('left', e.shiftKey),
-        ArrowRight: () => s.navigate('right', e.shiftKey),
-        ArrowUp: () => s.navigate('up', e.shiftKey),
-        ArrowDown: () => s.navigate('down', e.shiftKey),
+        ArrowLeft: () => s.navigate('left', nav),
+        ArrowRight: () => s.navigate('right', nav),
+        ArrowUp: () => s.navigate('up', nav),
+        ArrowDown: () => s.navigate('down', nav),
       }
       const fn = map[e.key]
       if (fn) {
@@ -143,10 +145,18 @@ function Help() {
         <dd>入力中に改行</dd>
         <dt>Esc</dt>
         <dd>入力を取り消し</dd>
-        <dt>矢印キー</dt>
-        <dd>選択を移動（↑↓は親をまたいで同じ階層へ）</dd>
-        <dt>Shift+矢印</dt>
-        <dd>一気に移動：↑↓ 兄弟の先頭・末尾 ／ → 枝の先端 ／ ← 中心</dd>
+        <dt>← / →</dt>
+        <dd>親へ ／ 子へ（前にいた子に戻る）</dd>
+        <dt>↑ / ↓</dt>
+        <dd>同じ階層の上下（親をまたぐ）</dd>
+        <dt>{ALT}+↑ / ↓</dt>
+        <dd>階層に関係なく、画面上ですぐ上・下へ</dd>
+        <dt>Shift+←</dt>
+        <dd>枝の先頭へ（もう一度でタイトル）</dd>
+        <dt>Shift+→</dt>
+        <dd>枝の先端へ（来た道をたどる）</dd>
+        <dt>Shift+↑ / ↓</dt>
+        <dd>兄弟の先頭 ／ 末尾へ</dd>
         <dt>/</dt>
         <dd>折りたたみ・展開</dd>
         <dt>Delete</dt>

@@ -302,7 +302,7 @@
   border-radius: 10px;
   padding: 10px 14px 12px;
   font-size: 12px;
-  width: 300px;
+  width: 330px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
 }
 .help-head {
@@ -319,7 +319,7 @@
 }
 .help dl {
   display: grid;
-  grid-template-columns: 84px 1fr;
+  grid-template-columns: 98px 1fr;
   gap: 3px 10px;
   margin: 0;
 }

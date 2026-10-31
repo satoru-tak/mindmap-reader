@@ -31,6 +31,10 @@ function createMapFromTemplate(mode: MapMode): MindMap {
 }
 
 type Direction = 'left' | 'right' | 'up' | 'down'
+export type NavMod = 'none' | 'shift' | 'alt'
+
+/** For each node, the child that was last selected under it (so → goes back the way you came). */
+const trail = new Map<string, string>()
 
 /** Drag-to-reparent feedback shown while a node is being dragged. */
 export interface DragState {
@@ -85,7 +89,12 @@ interface State {
   toggleCollapse: (id?: string) => void
   moveNode: (id: string, newParentId: string) => void
   /** jump=true (Shift+矢印): 兄弟の端 / 中心 / 枝の先端へ一気に移動 */
-  navigate: (dir: Direction, jump?: boolean) => void
+  /**
+   * none : ← 親 / → 子 / ↑↓ 同じ階層の上下
+   * shift: ← 枝の先頭 / → 枝の先端 / ↑↓ 兄弟の先頭・末尾
+   * alt  : ↑↓ 階層に関係なく画面上ですぐ上・下のノード
+   */
+  navigate: (dir: Direction, mod?: NavMod) => void
   undo: () => void
   redo: () => void
   requestFit: () => void
@@ -302,57 +311,60 @@ export const useStore = create<State>((set, get) => {
       })
     },
 
-    navigate: (dir, jump = false) => {
+    navigate: (dir, mod = 'none') => {
       const map = current()
       const sel = get().selectedId
       if (!map || !sel) return
       const nodes = map.nodes
       const n = nodes[sel]
       const pos = (id: string) => layoutCache.get(id)
-      const centerY = (id: string) => {
-        const p = pos(id)
-        return p ? p.y + p.height / 2 : 0
-      }
-      /** visible child whose vertical centre is closest to this node's centre */
-      const nearestChild = (id: string) => {
-        const kids = nodes[id].collapsed ? [] : nodes[id].children
-        if (!kids.length) return undefined
-        const cy = centerY(id)
-        return kids.reduce((a, b) => (Math.abs(centerY(b) - cy) < Math.abs(centerY(a) - cy) ? b : a))
+      const visibleKids = (id: string) => (nodes[id].collapsed ? [] : nodes[id].children)
+      /** child to go to with →: the one you came from, otherwise the top one */
+      const nextChild = (id: string) => {
+        const kids = visibleKids(id)
+        const remembered = trail.get(id)
+        return remembered && kids.includes(remembered) ? remembered : kids[0]
       }
       let next: string | undefined
 
       if (dir === 'left') {
-        next = jump ? map.rootId : (n.parentId ?? undefined)
+        if (mod === 'shift') {
+          // start of this branch (the node right next to the title); from there, the title
+          let cur = sel
+          while (nodes[cur].parentId && nodes[cur].parentId !== map.rootId) cur = nodes[cur].parentId!
+          next = cur === sel ? (n.parentId ?? undefined) : cur
+        } else next = n.parentId ?? undefined
       } else if (dir === 'right') {
         if (n.collapsed && n.children.length) return get().toggleCollapse(sel)
-        next = nearestChild(sel)
-        if (jump) {
-          // follow the branch to its tip
+        next = nextChild(sel)
+        if (mod === 'shift') {
+          // tip of the branch, following the path you came from
           let cur = next
           while (cur) {
             next = cur
-            cur = nearestChild(cur)
+            cur = nextChild(cur)
           }
         }
-      } else if (jump) {
-        // Shift+↑↓: first / last sibling
+      } else if (mod === 'shift') {
         if (n.parentId) {
           const sibs = nodes[n.parentId].children
           next = dir === 'up' ? sibs[0] : sibs[sibs.length - 1]
         }
       } else {
-        // ↑↓: the node visually above / below on the same level, crossing parents
         const me = pos(sel)
         if (me) {
+          const myCy = me.y + me.height / 2
           let best: string | undefined
-          let bestDist = Infinity
+          let bestScore = Infinity
           for (const [id, p] of layoutCache) {
-            if (id === sel || p.depth !== me.depth) continue
-            const d = p.y - me.y
-            if ((dir === 'up' && d < 0) || (dir === 'down' && d > 0)) {
-              if (Math.abs(d) < bestDist) {
-                bestDist = Math.abs(d)
+            if (id === sel) continue
+            if (mod !== 'alt' && p.depth !== me.depth) continue
+            const dy = p.y + p.height / 2 - myCy
+            if ((dir === 'up' && dy < -1) || (dir === 'down' && dy > 1)) {
+              // alt: nearest on screen at any level (vertical distance first, then horizontal)
+              const score = mod === 'alt' ? Math.abs(dy) + Math.abs(p.x - me.x) * 0.25 : Math.abs(dy)
+              if (score < bestScore) {
+                bestScore = score
                 best = id
               }
             }
@@ -394,6 +406,18 @@ export const useStore = create<State>((set, get) => {
     },
 
     requestFit: () => set((s) => ({ fitToken: s.fitToken + 1 })),
+  }
+})
+
+// Remember the path to the selected node, so → returns along it.
+useStore.subscribe((s, prev) => {
+  if (s.currentMapId !== prev.currentMapId) trail.clear()
+  if (!s.selectedId || s.selectedId === prev.selectedId || !s.currentMapId) return
+  const nodes = s.maps[s.currentMapId]?.nodes
+  let cur: string | undefined = s.selectedId
+  while (cur && nodes?.[cur]?.parentId) {
+    trail.set(nodes[cur].parentId!, cur)
+    cur = nodes[cur].parentId!
   }
 })
 
