@@ -2,7 +2,9 @@ import type { NodeRecord } from './types'
 
 export const H_GAP = 56
 export const V_GAP = 12
-const MAX_WIDTH = 260
+const MAX_WIDTH = 300
+/** while editing, a node may grow wider before it wraps, so typing extends sideways */
+export const EDIT_MAX_WIDTH = 480
 const MIN_WIDTH = 64
 const PAD_X = 14
 const PAD_Y = 8
@@ -25,10 +27,10 @@ function measureLine(text: string, size: number, weight: number) {
 }
 
 /** Estimate the rendered size of a node so the tree can be laid out before React renders it. */
-export function measureNode(text: string, depth: number) {
+export function measureNode(text: string, depth: number, maxWidth = MAX_WIDTH, editing = false) {
   const { size, weight } = fontFor(depth)
   const lineHeight = Math.round(size * 1.45)
-  const inner = MAX_WIDTH - PAD_X * 2
+  const inner = maxWidth - PAD_X * 2
   const lines = (text || '　').split('\n')
   let width = 0
   let lineCount = 0
@@ -38,7 +40,8 @@ export function measureNode(text: string, depth: number) {
     lineCount += Math.max(1, Math.ceil(w / inner))
   }
   return {
-    width: Math.max(MIN_WIDTH, Math.ceil(width) + PAD_X * 2 + 2),
+    // editing: leave room for the caret and one more character so text never wraps early
+    width: Math.max(editing ? 120 : MIN_WIDTH, Math.ceil(width) + PAD_X * 2 + 2 + (editing ? size + 4 : 0)),
     height: lineCount * lineHeight + PAD_Y * 2 + 2,
   }
 }
@@ -57,7 +60,11 @@ export interface LaidOutNode {
  * Left-to-right tree layout: root on the left, children to the right,
  * each subtree gets a vertical band and the parent is centred on it.
  */
-export function layoutTree(nodes: NodeRecord, rootId: string): LaidOutNode[] {
+export function layoutTree(
+  nodes: NodeRecord,
+  rootId: string,
+  editing?: { id: string; text: string } | null,
+): LaidOutNode[] {
   const out: LaidOutNode[] = []
   const sizes = new Map<string, { width: number; height: number }>()
   const bandHeight = new Map<string, number>()
@@ -65,7 +72,10 @@ export function layoutTree(nodes: NodeRecord, rootId: string): LaidOutNode[] {
   const visibleChildren = (id: string) => (nodes[id].collapsed ? [] : nodes[id].children)
 
   const measure = (id: string, depth: number): number => {
-    const size = measureNode(nodes[id].text, depth)
+    const size =
+      editing && editing.id === id
+        ? measureNode(editing.text, depth, EDIT_MAX_WIDTH, true)
+        : measureNode(nodes[id].text, depth)
     sizes.set(id, size)
     const kids = visibleChildren(id)
     let kidsHeight = 0

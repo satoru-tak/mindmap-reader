@@ -352,3 +352,87 @@
     display: none;
   }
 }
+
+/* ---------- Editing ---------- */
+.mind-node.editing {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+  transition: none;
+}
+.mind-node.depth-0.editing {
+  border-color: #8fa8ec;
+}
+.mind-editor {
+  white-space: pre-wrap;
+}
+
+/* ---------- Drag to re-link ---------- */
+.mind-node.drop-target {
+  outline: 2.5px dashed var(--accent);
+  outline-offset: 4px;
+  background: #eef2fd;
+}
+.mind-node.depth-0.drop-target {
+  background: #3a4252;
+}
+.mind-node.drop-blocked {
+  outline: 2.5px dashed var(--danger);
+  outline-offset: 4px;
+}
+.drop-badge {
+  position: absolute;
+  top: -26px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.canvas {
+  position: relative;
+}
+.drag-hint {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 16px;
+  font-size: 13px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.drag-hint.ok {
+  border-color: var(--accent);
+  color: #2f4fa8;
+  background: #eef2fd;
+}
+.drag-hint.blocked {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: #fdf0f2;
+}
+.react-flow__node.dragging .mind-node {
+  opacity: 0.7;
+}
+.ghost-node {
+  border: 2px dashed var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-radius: 8px;
+  padding: 7px 13px;
+  font-size: 14px;
+  color: #2f4fa8;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  pointer-events: none;
+}

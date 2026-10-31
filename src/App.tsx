@@ -42,10 +42,10 @@ function useKeyboard() {
         Delete: () => s.deleteNode(),
         Backspace: () => s.deleteNode(),
         '/': () => s.toggleCollapse(),
-        ArrowLeft: () => s.navigate('left'),
-        ArrowRight: () => s.navigate('right'),
-        ArrowUp: () => s.navigate('up'),
-        ArrowDown: () => s.navigate('down'),
+        ArrowLeft: () => s.navigate('left', e.shiftKey),
+        ArrowRight: () => s.navigate('right', e.shiftKey),
+        ArrowUp: () => s.navigate('up', e.shiftKey),
+        ArrowDown: () => s.navigate('down', e.shiftKey),
       }
       const fn = map[e.key]
       if (fn) {
@@ -144,7 +144,9 @@ function Help() {
         <dt>Esc</dt>
         <dd>入力を取り消し</dd>
         <dt>矢印キー</dt>
-        <dd>選択を移動</dd>
+        <dd>選択を移動（↑↓は親をまたいで同じ階層へ）</dd>
+        <dt>Shift+矢印</dt>
+        <dd>一気に移動：↑↓ 兄弟の先頭・末尾 ／ → 枝の先端 ／ ← 中心</dd>
         <dt>/</dt>
         <dd>折りたたみ・展開</dd>
         <dt>Delete</dt>
@@ -152,7 +154,7 @@ function Help() {
         <dt>{MOD}+Z</dt>
         <dd>元に戻す</dd>
         <dt>ドラッグ</dt>
-        <dd>別のノードに重ねると付け替え</dd>
+        <dd>別のノードに重ねて離すと、その下に移動</dd>
       </dl>
       <p className="help-note">保存は自動です。データはこのブラウザ内にだけ保存されます。</p>
     </aside>

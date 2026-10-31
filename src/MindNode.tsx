@@ -18,13 +18,16 @@ export type MindFlowNode = Node<
 function MindNodeView({ id, data, width, height }: NodeProps<MindFlowNode>) {
   const selected = useStore((s) => s.selectedId === id)
   const editing = useStore((s) => s.editingId === id)
+  const dropState = useStore((s) =>
+    s.drag?.targetId === id ? (s.drag.blocked ? 'drop-blocked' : 'drop-target') : '',
+  )
   const { select, startEdit, commitEdit, addChild, toggleCollapse } = useStore.getState()
   const { size, weight } = fontFor(data.depth)
   const isRoot = data.depth === 0
 
   return (
     <div
-      className={`mind-node depth-${Math.min(data.depth, 2)}${selected ? ' selected' : ''}`}
+      className={`mind-node depth-${Math.min(data.depth, 2)}${selected ? ' selected' : ''}${editing ? ' editing' : ''} ${dropState}`}
       style={
         {
           width,
@@ -44,9 +47,11 @@ function MindNodeView({ id, data, width, height }: NodeProps<MindFlowNode>) {
       }}
     >
       <Handle type="target" position={Position.Left} className="mind-handle" isConnectable={false} />
+      {dropState === 'drop-target' && <span className="drop-badge">ここに移動</span>}
       {editing ? (
         <NodeEditor
           initial={data.text}
+          onDraft={(text) => useStore.getState().setDraft(id, text)}
           onCommit={(text) => commitEdit(id, text)}
           onCommitAndAddChild={(text) => {
             commitEdit(id, text)
@@ -78,10 +83,12 @@ function MindNodeView({ id, data, width, height }: NodeProps<MindFlowNode>) {
 
 function NodeEditor({
   initial,
+  onDraft,
   onCommit,
   onCommitAndAddChild,
 }: {
   initial: string
+  onDraft: (text: string) => void
   onCommit: (text: string) => void
   onCommitAndAddChild: (text: string) => void
 }) {
@@ -117,7 +124,10 @@ function NodeEditor({
       value={text}
       rows={1}
       placeholder="入力して Enter"
-      onChange={(e) => setText(e.target.value)}
+      onChange={(e) => {
+        setText(e.target.value)
+        onDraft(e.target.value)
+      }}
       onBlur={() => finish(onCommit, text)}
       onKeyDown={(e) => {
         // Never react while the Japanese IME is composing (Enter confirms the conversion).

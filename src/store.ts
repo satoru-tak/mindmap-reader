@@ -32,6 +32,26 @@ function createMapFromTemplate(mode: MapMode): MindMap {
 
 type Direction = 'left' | 'right' | 'up' | 'down'
 
+/** Drag-to-reparent feedback shown while a node is being dragged. */
+export interface DragState {
+  draggingId: string
+  targetId: string | null
+  /** why the current target can't be used */
+  blocked: 'descendant' | 'same-parent' | null
+}
+
+/** Positions from the last auto layout, used for visual (spatial) keyboard navigation. */
+export interface NodePos {
+  x: number
+  y: number
+  height: number
+  depth: number
+}
+let layoutCache = new Map<string, NodePos>()
+export const setLayoutCache = (m: Map<string, NodePos>) => {
+  layoutCache = m
+}
+
 interface State {
   maps: Record<string, MindMap>
   currentMapId: string | null
@@ -41,6 +61,11 @@ interface State {
   future: NodeRecord[]
   /** bumps when the user wants the view re-fitted (map switch, "全体表示") */
   fitToken: number
+  /** live text of the node being edited, so the layout can grow sideways while typing */
+  draft: { id: string; text: string } | null
+  drag: DragState | null
+  setDraft: (id: string, text: string) => void
+  setDrag: (d: DragState | null) => void
 
   createMap: (mode: MapMode) => void
   selectMap: (id: string) => void
@@ -59,7 +84,8 @@ interface State {
   deleteNode: (id?: string) => void
   toggleCollapse: (id?: string) => void
   moveNode: (id: string, newParentId: string) => void
-  navigate: (dir: Direction) => void
+  /** jump=true (Shift+矢印): 兄弟の端 / 中心 / 枝の先端へ一気に移動 */
+  navigate: (dir: Direction, jump?: boolean) => void
   undo: () => void
   redo: () => void
   requestFit: () => void
@@ -71,7 +97,7 @@ const cloneNodes = (nodes: NodeRecord): NodeRecord => {
   return out
 }
 
-function isDescendant(nodes: NodeRecord, ancestorId: string, id: string): boolean {
+export function isDescendant(nodes: NodeRecord, ancestorId: string, id: string): boolean {
   let cur: string | null = id
   while (cur) {
     if (cur === ancestorId) return true
@@ -125,6 +151,10 @@ export const useStore = create<State>((set, get) => {
     future: [],
     fitToken: 0,
     lastAddedId: null,
+    draft: null,
+    drag: null,
+    setDraft: (id, text) => set({ draft: { id, text } }),
+    setDrag: (d) => set({ drag: d }),
 
     createMap: (mode) => {
       const map = createMapFromTemplate(mode)
@@ -170,8 +200,8 @@ export const useStore = create<State>((set, get) => {
       }),
 
     select: (id) => set({ selectedId: id }),
-    startEdit: (id) => set({ selectedId: id, editingId: id }),
-    stopEdit: () => set({ editingId: null }),
+    startEdit: (id) => set({ selectedId: id, editingId: id, draft: null }),
+    stopEdit: () => set({ editingId: null, draft: null }),
 
     addChild: (id) => {
       const target = id ?? get().selectedId
@@ -182,7 +212,7 @@ export const useStore = create<State>((set, get) => {
         nodes[c.id] = c
         parent.children.push(c.id)
         parent.collapsed = false
-        return { selectedId: c.id, editingId: c.id, lastAddedId: c.id }
+        return { selectedId: c.id, editingId: c.id, lastAddedId: c.id, draft: null }
       })
     },
 
@@ -196,7 +226,7 @@ export const useStore = create<State>((set, get) => {
         const c = node('', parent.id)
         nodes[c.id] = c
         parent.children.splice(parent.children.indexOf(target) + 1, 0, c.id)
-        return { selectedId: c.id, editingId: c.id, lastAddedId: c.id }
+        return { selectedId: c.id, editingId: c.id, lastAddedId: c.id, draft: null }
       })
     },
 
@@ -210,7 +240,7 @@ export const useStore = create<State>((set, get) => {
 
     commitEdit: (id, text) => {
       const map = current()
-      if (!map || !map.nodes[id]) return set({ editingId: null })
+      if (!map || !map.nodes[id]) return set({ editingId: null, draft: null })
       const n = map.nodes[id]
       if (!text.trim() && id !== map.rootId && !n.children.length) {
         if (get().lastAddedId === id && n.text === '') {
@@ -218,7 +248,7 @@ export const useStore = create<State>((set, get) => {
           get().undo()
           set({ future: [], lastAddedId: null, selectedId: parentId })
         } else get().deleteNode(id)
-        return set({ editingId: null })
+        return set({ editingId: null, draft: null })
       }
       if (get().lastAddedId === id && n.text === '' && text !== '') {
         // first text of a node just added: fold into the "add" step so one undo removes it
@@ -226,7 +256,7 @@ export const useStore = create<State>((set, get) => {
           nodes[id].text = text
         }, false)
       } else get().updateText(id, text)
-      set({ editingId: null, lastAddedId: null })
+      set({ editingId: null, lastAddedId: null, draft: null })
     },
 
     deleteNode: (id) => {
@@ -272,22 +302,65 @@ export const useStore = create<State>((set, get) => {
       })
     },
 
-    navigate: (dir) => {
+    navigate: (dir, jump = false) => {
       const map = current()
       const sel = get().selectedId
       if (!map || !sel) return
-      const n = map.nodes[sel]
-      let next: string | undefined
-      if (dir === 'left') next = n.parentId ?? undefined
-      else if (dir === 'right') {
-        if (n.collapsed && n.children.length) return get().toggleCollapse(sel)
-        next = n.children[0]
-      } else if (n.parentId) {
-        const sibs = map.nodes[n.parentId].children
-        const i = sibs.indexOf(sel)
-        next = sibs[dir === 'up' ? i - 1 : i + 1]
+      const nodes = map.nodes
+      const n = nodes[sel]
+      const pos = (id: string) => layoutCache.get(id)
+      const centerY = (id: string) => {
+        const p = pos(id)
+        return p ? p.y + p.height / 2 : 0
       }
-      if (next) set({ selectedId: next })
+      /** visible child whose vertical centre is closest to this node's centre */
+      const nearestChild = (id: string) => {
+        const kids = nodes[id].collapsed ? [] : nodes[id].children
+        if (!kids.length) return undefined
+        const cy = centerY(id)
+        return kids.reduce((a, b) => (Math.abs(centerY(b) - cy) < Math.abs(centerY(a) - cy) ? b : a))
+      }
+      let next: string | undefined
+
+      if (dir === 'left') {
+        next = jump ? map.rootId : (n.parentId ?? undefined)
+      } else if (dir === 'right') {
+        if (n.collapsed && n.children.length) return get().toggleCollapse(sel)
+        next = nearestChild(sel)
+        if (jump) {
+          // follow the branch to its tip
+          let cur = next
+          while (cur) {
+            next = cur
+            cur = nearestChild(cur)
+          }
+        }
+      } else if (jump) {
+        // Shift+↑↓: first / last sibling
+        if (n.parentId) {
+          const sibs = nodes[n.parentId].children
+          next = dir === 'up' ? sibs[0] : sibs[sibs.length - 1]
+        }
+      } else {
+        // ↑↓: the node visually above / below on the same level, crossing parents
+        const me = pos(sel)
+        if (me) {
+          let best: string | undefined
+          let bestDist = Infinity
+          for (const [id, p] of layoutCache) {
+            if (id === sel || p.depth !== me.depth) continue
+            const d = p.y - me.y
+            if ((dir === 'up' && d < 0) || (dir === 'down' && d > 0)) {
+              if (Math.abs(d) < bestDist) {
+                bestDist = Math.abs(d)
+                best = id
+              }
+            }
+          }
+          next = best
+        }
+      }
+      if (next && next !== sel) set({ selectedId: next })
     },
 
     undo: () => {
@@ -301,6 +374,7 @@ export const useStore = create<State>((set, get) => {
         future: [map.nodes, ...future],
         selectedId: selectedId && prev[selectedId] ? selectedId : map.rootId,
         editingId: null,
+        draft: null,
       })
     },
 
@@ -315,6 +389,7 @@ export const useStore = create<State>((set, get) => {
         future: future.slice(1),
         selectedId: selectedId && next[selectedId] ? selectedId : map.rootId,
         editingId: null,
+        draft: null,
       })
     },
 
