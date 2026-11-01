@@ -128,7 +128,7 @@ interface State {
   /**
    * none : ← 親 / → 子 / ↑↓ 同じ階層の上下
    * shift: ← 枝の先頭 / → 枝の先端 / ↑↓ 兄弟の先頭・末尾
-   * any  : ↑↓ 階層に関係なく画面上ですぐ上・下のノード（⌘/Ctrl+↑↓）
+   * any  : ↑↓ 深さに関係なく、読む順（アウトライン順）で前・次の項目（⌘/Ctrl+↑↓）
    */
   navigate: (dir: Direction, mod?: NavMod) => void
   undo: () => void
@@ -555,21 +555,30 @@ export const useStore = create<State>((set, get) => {
           const sibs = nodes[n.parentId].children
           next = dir === 'up' ? sibs[0] : sibs[sibs.length - 1]
         }
+      } else if (mod === 'any') {
+        // ⌘/Ctrl+↑↓: previous / next item in reading order (top to bottom like an outline),
+        // regardless of depth — so you never have to go back to a parent first
+        const order: string[] = []
+        const walk = (id: string) => {
+          order.push(id)
+          for (const k of visibleKids(id)) walk(k)
+        }
+        walk(map.rootId)
+        const i = order.indexOf(sel)
+        next = order[dir === 'up' ? i - 1 : i + 1]
       } else {
+        // ↑↓: the item above / below on the same level, crossing groups
         const me = pos(sel)
         if (me) {
           const myCy = me.y + me.height / 2
           let best: string | undefined
-          let bestScore = Infinity
+          let bestDist = Infinity
           for (const [id, p] of layoutCache) {
-            if (id === sel) continue
-            if (mod !== 'any' && p.depth !== me.depth) continue
+            if (id === sel || p.depth !== me.depth) continue
             const dy = p.y + p.height / 2 - myCy
             if ((dir === 'up' && dy < -1) || (dir === 'down' && dy > 1)) {
-              // any: nearest on screen at any level (vertical distance first, then horizontal)
-              const score = mod === 'any' ? Math.abs(dy) + Math.abs(p.x - me.x) * 0.25 : Math.abs(dy)
-              if (score < bestScore) {
-                bestScore = score
+              if (Math.abs(dy) < bestDist) {
+                bestDist = Math.abs(dy)
                 best = id
               }
             }
@@ -696,3 +705,6 @@ if (typeof window !== 'undefined') {
   window.addEventListener('pagehide', flush)
   document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && flush())
 }
+
+// Expose the store for automated tests (e2e/commands.mjs). Read-only use; harmless in production.
+if (typeof window !== 'undefined') (window as unknown as { __mindmap: typeof useStore }).__mindmap = useStore

@@ -51,7 +51,7 @@ ADHD/ASDなど「頭の中を整理するのが苦手」な人が、迷わず・
 | 削除 | Delete |
 | 移動 | 矢印キー |
 | 一気に移動 | Shift+矢印 |
-| 深さに関係なく上下へ | ⌘+↑↓ |
+| 深さに関係なく、読む順で前・次へ | ⌘+↑↓ |
 | タイトルへ戻る | H |
 | 順番の入れ替え | Option+↑↓ |
 | たたむ・ひらく | / |
@@ -95,7 +95,7 @@ ADHD/ASDなど「頭の中を整理するのが苦手」な人が、迷わず・
 |---|---|
 | ← / → | まとめ側へ / 詳しい側へ（前にいた項目に戻る） |
 | ↑ / ↓ | 同じ深さの上下へ（並びをまたぐ） |
-| ⌘(Ctrl)+↑ / ↓ | 深さに関係なく、画面上ですぐ上・下の項目へ |
+| ⌘(Ctrl)+↑ / ↓ | 深さに関係なく、読む順（上から下へ、目次のような順番）で前・次の項目へ |
 | Shift+← | 枝の先頭へ（もう一度でタイトル） |
 | Shift+→ | 枝の先端へ（来た道をたどる。初めてなら一番上の枝） |
 | Shift+↑ / ↓ | 並びの先頭 / 末尾へ |
@@ -161,6 +161,22 @@ cd ~/projects/mindmap-reader && git pull && npm install && npm run dev
 npm run dev      # 開発サーバー http://localhost:5173
 npm run build    # 本番用に dist/ へ出力
 npx vite preview # ビルド結果の確認 http://localhost:4173
+```
+
+### 全コマンドのテスト
+
+`e2e/commands.mjs` に、キー操作・ボタン・ドラッグ・ファイルの書き出し/読み込みなど
+すべてのコマンドを実際のブラウザで操作して確かめるテストがある（⌘ と Ctrl の両方を確認）。
+コマンドを追加・変更したら、ここにもテストを足して実行する。
+
+```bash
+# 初回だけ
+npm install --no-save playwright && npx playwright install chromium
+
+# 毎回（ターミナルを2つ使う）
+npm run build && npx vite preview --port 4173   # 1つ目
+npm run test:e2e                                # 2つ目。最後に「◯件成功 / ◯件失敗」と出る
+npm run test:e2e -- コピー                       # 名前に「コピー」を含むテストだけ実行
 ```
 
 技術構成：Vite + React + TypeScript、[React Flow](https://reactflow.dev/)（キャンバス）、Zustand（状態管理）。

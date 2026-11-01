@@ -71,3 +71,4 @@ export const setInternalClip = (outline: string, clips: Clip[]) => {
 /** If the pasted text is what we copied ourselves, use the rich version. */
 export const clipsForPaste = (text: string): Clip[] =>
   internal && text.trim() === internal.outline.trim() ? internal.clips : parseOutline(text)
+export const getInternalClips = (): Clip[] | null => internal?.clips ?? null

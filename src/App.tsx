@@ -5,7 +5,7 @@ import Canvas from './Canvas'
 import Sidebar from './Sidebar'
 import { DropZone, exportCurrent, openFilePicker, Toast } from './FileActions'
 import { useStore } from './store'
-import { clipsForPaste, setInternalClip, toClip, toOutline } from './clipboard'
+import { clipsForPaste, getInternalClips, setInternalClip, toClip, toOutline } from './clipboard'
 import { MODE_LABEL, type MapMode } from './types'
 import { filterPageInput } from './page'
 import './App.css'
@@ -20,6 +20,27 @@ function focusPageInput() {
     el.focus()
     el.select()
   }
+}
+
+/**
+ * Copy / cut / paste.
+ * The keydown handler does the work, so it works even in browsers that don't fire the
+ * clipboard events when nothing is selected (Safari). The clipboard events, when they do
+ * fire, put the outline text on the system clipboard for other apps.
+ */
+let prepared: { outline: string; at: number } | null = null
+let lastPasteEventAt = 0
+
+function copySelection(cut: boolean) {
+  const s = useStore.getState()
+  const map = s.currentMapId ? s.maps[s.currentMapId] : null
+  if (!map || !s.selectedId) return null
+  const clip = toClip(map.nodes, s.selectedId)
+  const outline = toOutline(clip)
+  setInternalClip(outline, [clip])
+  if (cut && s.selectedId !== map.rootId) s.deleteNode()
+  s.showToast(cut ? '切り取りました' : 'コピーしました（ほかのアプリには箇条書きとして貼り付けられます）')
+  return outline
 }
 
 function useKeyboard() {
@@ -53,7 +74,25 @@ function useKeyboard() {
         if (key === 'Enter') return run(() => s.insertParent())
         if (key === 'ArrowUp') return run(() => s.navigate('up', 'any'))
         if (key === 'ArrowDown') return run(() => s.navigate('down', 'any'))
-        return // ⌘C / ⌘X / ⌘V are handled by the copy / cut / paste events
+        if (key === 'c' || key === 'x') {
+          const outline = copySelection(key === 'x')
+          if (outline) {
+            prepared = { outline, at: Date.now() }
+            // best effort for browsers without the copy event; the event (if any) also sets it
+            navigator.clipboard?.writeText?.(outline).catch(() => {})
+          }
+          return // no preventDefault: let the browser fire the copy / cut event too
+        }
+        if (key === 'v') {
+          const at = Date.now()
+          // if no paste event arrives (Safari outside text fields), paste what was copied in the app
+          setTimeout(() => {
+            const clips = getInternalClips()
+            if (lastPasteEventAt < at && clips) useStore.getState().pasteClips(clips)
+          }, 80)
+          return
+        }
+        return
       }
 
       if (key === 'Home' || key === 'h') return run(s.goHome)
@@ -98,26 +137,26 @@ function useKeyboard() {
       return !!useStore.getState().editingId || !!t?.closest?.('input, textarea, [contenteditable="true"]')
     }
     const onCopyCut = (e: ClipboardEvent) => {
-      if (editingText(e)) return
-      const s = useStore.getState()
-      const map = s.currentMapId ? s.maps[s.currentMapId] : null
-      if (!map || !s.selectedId || !e.clipboardData) return
-      const clip = toClip(map.nodes, s.selectedId)
-      const outline = toOutline(clip)
+      if (editingText(e) || !e.clipboardData) return
+      // from the keyboard: already handled in keydown, just hand the text to the system clipboard
+      let outline = prepared && Date.now() - prepared.at < 1000 ? prepared.outline : null
+      prepared = null
+      // from the browser's Edit menu: do the whole thing here
+      if (!outline) outline = copySelection(e.type === 'cut')
+      if (!outline) return
       e.clipboardData.setData('text/plain', outline)
       e.preventDefault()
-      setInternalClip(outline, [clip])
-      if (e.type === 'cut' && s.selectedId !== map.rootId) s.deleteNode()
-      s.showToast(e.type === 'cut' ? '切り取りました' : 'コピーしました（ほかのアプリには箇条書きとして貼り付けられます）')
     }
     const onPaste = (e: ClipboardEvent) => {
       if (editingText(e)) return
+      lastPasteEventAt = Date.now()
       const s = useStore.getState()
       if (!s.selectedId || !e.clipboardData) return
       const text = e.clipboardData.getData('text/plain')
-      if (!text.trim()) return
+      const clips = text.trim() ? clipsForPaste(text) : getInternalClips()
+      if (!clips?.length) return
       e.preventDefault()
-      s.pasteClips(clipsForPaste(text))
+      s.pasteClips(clips)
     }
 
     window.addEventListener('keydown', onKey)
@@ -320,7 +359,7 @@ function Help() {
           <dt>↑ / ↓</dt>
           <dd>同じ深さの上下へ（並びをまたぐ）</dd>
           <dt>{MOD}+↑ / ↓</dt>
-          <dd>階層に関係なく、画面上ですぐ上・下へ</dd>
+          <dd>深さに関係なく、読む順で前 ／ 次の項目へ</dd>
           <dt>Shift+←</dt>
           <dd>枝の先頭へ（もう一度でタイトル）</dd>
           <dt>Shift+→</dt>
