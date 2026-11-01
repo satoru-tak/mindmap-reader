@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { MapMode, MindMap, MindNodeData, NodeRecord } from './types'
 import { getPreloaded, saveState } from './storage'
 import { normalizePage } from './page'
+import { toClip, type Clip } from './clipboard'
 
 const HISTORY_LIMIT = 100
 
@@ -47,7 +48,7 @@ function createMapFromTemplate(mode: MapMode): MindMap {
 }
 
 type Direction = 'left' | 'right' | 'up' | 'down'
-export type NavMod = 'none' | 'shift' | 'alt'
+export type NavMod = 'none' | 'shift' | 'any'
 
 /** For each node, the child that was last selected under it (so → goes back the way you came). */
 const trail = new Map<string, string>()
@@ -97,6 +98,16 @@ interface State {
 
   addChild: (id?: string) => void
   addSibling: (id?: string) => void
+  /** Shift+Enter: add a sibling above */
+  addSiblingBefore: (id?: string) => void
+  /** ⌘/Ctrl+Enter: insert a new parent between the node and its parent */
+  insertParent: (id?: string) => void
+  /** Alt/Option+↑↓: move the node up / down among its siblings */
+  moveSibling: (dir: 'up' | 'down', id?: string) => void
+  /** ⌘/Ctrl+D: duplicate the branch right below itself */
+  duplicateNode: (id?: string) => void
+  /** paste branches as children of the selected node */
+  pasteClips: (clips: Clip[], parentId?: string) => void
   updateText: (id: string, text: string) => void
   /** Finish editing. An empty, freshly added node is discarded as if it never existed. */
   commitEdit: (id: string, text: string) => void
@@ -108,7 +119,7 @@ interface State {
   /**
    * none : ← 親 / → 子 / ↑↓ 同じ階層の上下
    * shift: ← 枝の先頭 / → 枝の先端 / ↑↓ 兄弟の先頭・末尾
-   * alt  : ↑↓ 階層に関係なく画面上ですぐ上・下のノード
+   * any  : ↑↓ 階層に関係なく画面上ですぐ上・下のノード（⌘/Ctrl+↑↓）
    */
   navigate: (dir: Direction, mod?: NavMod) => void
   undo: () => void
@@ -149,6 +160,17 @@ export function isDescendant(nodes: NodeRecord, ancestorId: string, id: string):
     cur = nodes[cur]?.parentId ?? null
   }
   return false
+}
+
+/** Create nodes for a copied branch under parentId. Returns the new top node id (not yet linked). */
+function addClip(nodes: NodeRecord, clip: Clip, parentId: string): string {
+  const n = node(clip.text, parentId)
+  if (clip.page) n.page = clip.page
+  if (clip.kind) n.kind = clip.kind
+  if (clip.collapsed && clip.children.length) n.collapsed = true
+  nodes[n.id] = n
+  n.children = clip.children.map((c) => addClip(nodes, c, n.id))
+  return n.id
 }
 
 const initial = getPreloaded()
@@ -327,6 +349,75 @@ export const useStore = create<State>((set, get) => {
       })
     },
 
+    addSiblingBefore: (id) => {
+      const target = id ?? get().selectedId
+      const map = current()
+      if (!target || !map) return
+      if (target === map.rootId) return get().addChild(target)
+      mutate((nodes) => {
+        const parent = nodes[nodes[target].parentId!]
+        const c = node('', parent.id)
+        nodes[c.id] = c
+        parent.children.splice(parent.children.indexOf(target), 0, c.id)
+        return { selectedId: c.id, editingId: c.id, lastAddedId: c.id, draft: null, editCaretEnd: false }
+      })
+    },
+
+    insertParent: (id) => {
+      const target = id ?? get().selectedId
+      const map = current()
+      if (!target || !map || target === map.rootId) return
+      mutate((nodes) => {
+        const parent = nodes[nodes[target].parentId!]
+        const c = node('', parent.id)
+        nodes[c.id] = c
+        parent.children[parent.children.indexOf(target)] = c.id
+        c.children.push(target)
+        nodes[target].parentId = c.id
+        return { selectedId: c.id, editingId: c.id, lastAddedId: null, draft: null, editCaretEnd: false }
+      })
+    },
+
+    moveSibling: (dir, id) => {
+      const target = id ?? get().selectedId
+      const map = current()
+      if (!target || !map || target === map.rootId) return
+      const sibs = map.nodes[map.nodes[target].parentId!].children
+      const i = sibs.indexOf(target)
+      const j = dir === 'up' ? i - 1 : i + 1
+      if (j < 0 || j >= sibs.length) return
+      mutate((nodes) => {
+        const arr = nodes[nodes[target].parentId!].children
+        ;[arr[i], arr[j]] = [arr[j], arr[i]]
+      })
+    },
+
+    duplicateNode: (id) => {
+      const target = id ?? get().selectedId
+      const map = current()
+      if (!target || !map || target === map.rootId) return
+      const clip = toClip(map.nodes, target)
+      mutate((nodes) => {
+        const parent = nodes[nodes[target].parentId!]
+        const newId = addClip(nodes, clip, parent.id)
+        parent.children.splice(parent.children.indexOf(target) + 1, 0, newId)
+        return { selectedId: newId }
+      })
+    },
+
+    pasteClips: (clips, parentId) => {
+      const target = parentId ?? get().selectedId
+      const map = current()
+      if (!target || !map || !clips.length) return
+      mutate((nodes) => {
+        const parent = nodes[target]
+        const ids = clips.map((c) => addClip(nodes, c, parent.id))
+        parent.children.push(...ids)
+        parent.collapsed = false
+        return { selectedId: ids[0] }
+      })
+    },
+
     updateText: (id, text) => {
       const map = current()
       if (!map || map.nodes[id]?.text === text) return
@@ -446,11 +537,11 @@ export const useStore = create<State>((set, get) => {
           let bestScore = Infinity
           for (const [id, p] of layoutCache) {
             if (id === sel) continue
-            if (mod !== 'alt' && p.depth !== me.depth) continue
+            if (mod !== 'any' && p.depth !== me.depth) continue
             const dy = p.y + p.height / 2 - myCy
             if ((dir === 'up' && dy < -1) || (dir === 'down' && dy > 1)) {
-              // alt: nearest on screen at any level (vertical distance first, then horizontal)
-              const score = mod === 'alt' ? Math.abs(dy) + Math.abs(p.x - me.x) * 0.25 : Math.abs(dy)
+              // any: nearest on screen at any level (vertical distance first, then horizontal)
+              const score = mod === 'any' ? Math.abs(dy) + Math.abs(p.x - me.x) * 0.25 : Math.abs(dy)
               if (score < bestScore) {
                 bestScore = score
                 best = id

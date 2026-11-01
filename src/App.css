@@ -302,7 +302,7 @@
   border-radius: 10px;
   padding: 10px 14px 12px;
   font-size: 12px;
-  width: 330px;
+  width: 350px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
 }
 .help-head {
@@ -661,4 +661,24 @@
 }
 .toast.error {
   background: var(--danger);
+}
+
+/* ---------- Help (grouped) ---------- */
+.help-body {
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.help h3 {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
+  margin: 10px 0 4px;
+  letter-spacing: 0.04em;
+}
+.help h3:first-child {
+  margin-top: 2px;
+}
+.help dl {
+  grid-template-columns: 112px 1fr;
 }

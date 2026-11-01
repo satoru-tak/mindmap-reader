@@ -5,6 +5,7 @@ import Canvas from './Canvas'
 import Sidebar from './Sidebar'
 import { DropZone, exportCurrent, openFilePicker, Toast } from './FileActions'
 import { useStore } from './store'
+import { clipsForPaste, setInternalClip, toClip, toOutline } from './clipboard'
 import { MODE_LABEL, type MapMode } from './types'
 import { filterPageInput } from './page'
 import './App.css'
@@ -29,72 +30,106 @@ function useKeyboard() {
       if (s.editingId || t.closest('input, textarea, [contenteditable="true"]')) return
       if (e.isComposing) return
       const mod = e.metaKey || e.ctrlKey
+      const key = e.key.length === 1 ? e.key.toLowerCase() : e.key
+      const run = (fn: () => void) => {
+        e.preventDefault()
+        fn()
+      }
 
-      if (mod && e.key.toLowerCase() === 'z') {
-        e.preventDefault()
-        return e.shiftKey ? s.redo() : s.undo()
+      // ---- with ⌘ / Ctrl (Mac / Windows switch automatically) ----
+      if (mod) {
+        if (key === 'z') return run(() => (e.shiftKey ? s.redo() : s.undo()))
+        if (key === 'y') return run(s.redo)
+        if (key === 's')
+          // habit: ⌘S. Saving is automatic, so offer the file export instead of the browser's "save page"
+          return run(() =>
+            e.shiftKey ? exportCurrent() : s.showToast(`保存は自動で行われています。ファイルに書き出すには ${MOD}+Shift+S`),
+          )
+        if (key === 'o') return run(openFilePicker)
+        if (key === 'Home') return run(s.goHome)
+        if (!s.selectedId) return
+        if (key === 'd') return run(() => s.duplicateNode())
+        if (key === '/') return run(() => s.toggleCollapse())
+        if (key === 'Enter') return run(() => s.insertParent())
+        if (key === 'ArrowUp') return run(() => s.navigate('up', 'any'))
+        if (key === 'ArrowDown') return run(() => s.navigate('down', 'any'))
+        return // ⌘C / ⌘X / ⌘V are handled by the copy / cut / paste events
       }
-      if (mod && e.key.toLowerCase() === 's') {
-        // habit: ⌘S. Saving is automatic, so offer the file export instead of the browser's "save page"
-        e.preventDefault()
-        return e.shiftKey ? exportCurrent() : s.showToast('保存は自動で行われています。ファイルに書き出すには ' + MOD + '+Shift+S')
-      }
-      if (mod && e.key.toLowerCase() === 'o') {
-        e.preventDefault()
-        return openFilePicker()
-      }
-      if (mod && e.key.toLowerCase() === 'y') {
-        e.preventDefault()
-        return s.redo()
-      }
-      if (mod) return
-      if (['Home', 'h', 'H'].includes(e.key)) {
-        e.preventDefault()
-        return s.goHome()
-      }
-      if ((e.key === 'c' || e.key === 'C') && s.maps[s.currentMapId!]?.mode === 'reading') {
-        e.preventDefault()
-        return s.addChapter()
-      }
+
+      if (key === 'Home' || key === 'h') return run(s.goHome)
+      const reading = s.maps[s.currentMapId!]?.mode === 'reading'
+      if (key === 'c' && reading) return run(s.addChapter)
       if (!s.selectedId) {
-        if (['Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
-          e.preventDefault()
-          s.select(s.maps[s.currentMapId!]?.rootId ?? null)
-        }
+        if (['Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(key))
+          run(() => s.select(s.maps[s.currentMapId!]?.rootId ?? null))
         return
       }
-      const nav = e.shiftKey ? 'shift' : e.altKey ? 'alt' : 'none'
-      const reading = s.maps[s.currentMapId!]?.mode === 'reading'
+
+      // ---- Option / Alt: reorder among siblings (same as XMind) ----
+      if (e.altKey) {
+        if (key === 'ArrowUp') return run(() => s.moveSibling('up'))
+        if (key === 'ArrowDown') return run(() => s.moveSibling('down'))
+        return
+      }
+
+      const nav = e.shiftKey ? 'shift' : 'none'
       const map: Record<string, () => void> = {
         Tab: () => s.addChild(),
-        Enter: () => s.addSibling(),
+        Enter: () => (e.shiftKey ? s.addSiblingBefore() : s.addSibling()),
         F2: () => s.startEdit(s.selectedId!),
         ' ': () => s.startEdit(s.selectedId!),
         Delete: () => s.deleteNode(),
         Backspace: () => s.deleteNode(),
         '/': () => s.toggleCollapse(),
-        Home: () => s.goHome(),
         q: () => reading && s.toggleQuote(),
-        Q: () => reading && s.toggleQuote(),
         p: () => reading && focusPageInput(),
-        P: () => reading && focusPageInput(),
-        c: () => reading && s.addChapter(),
-        C: () => reading && s.addChapter(),
-        h: () => s.goHome(),
-        H: () => s.goHome(),
         ArrowLeft: () => s.navigate('left', nav),
         ArrowRight: () => s.navigate('right', nav),
         ArrowUp: () => s.navigate('up', nav),
         ArrowDown: () => s.navigate('down', nav),
       }
-      const fn = map[e.key]
-      if (fn) {
-        e.preventDefault()
-        fn()
-      }
+      const fn = map[key]
+      if (fn) run(fn)
     }
+
+    // Copy / cut / paste use the clipboard events, so no clipboard permission is needed.
+    const editingText = (e: Event) => {
+      const t = e.target as HTMLElement | null
+      return !!useStore.getState().editingId || !!t?.closest?.('input, textarea, [contenteditable="true"]')
+    }
+    const onCopyCut = (e: ClipboardEvent) => {
+      if (editingText(e)) return
+      const s = useStore.getState()
+      const map = s.currentMapId ? s.maps[s.currentMapId] : null
+      if (!map || !s.selectedId || !e.clipboardData) return
+      const clip = toClip(map.nodes, s.selectedId)
+      const outline = toOutline(clip)
+      e.clipboardData.setData('text/plain', outline)
+      e.preventDefault()
+      setInternalClip(outline, [clip])
+      if (e.type === 'cut' && s.selectedId !== map.rootId) s.deleteNode()
+      s.showToast(e.type === 'cut' ? '切り取りました' : 'コピーしました（ほかのアプリには箇条書きとして貼り付けられます）')
+    }
+    const onPaste = (e: ClipboardEvent) => {
+      if (editingText(e)) return
+      const s = useStore.getState()
+      if (!s.selectedId || !e.clipboardData) return
+      const text = e.clipboardData.getData('text/plain')
+      if (!text.trim()) return
+      e.preventDefault()
+      s.pasteClips(clipsForPaste(text))
+    }
+
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('copy', onCopyCut)
+    window.addEventListener('cut', onCopyCut)
+    window.addEventListener('paste', onPaste)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('copy', onCopyCut)
+      window.removeEventListener('cut', onCopyCut)
+      window.removeEventListener('paste', onPaste)
+    }
   }, [])
 }
 
@@ -251,50 +286,73 @@ function Help() {
           ×
         </button>
       </div>
-      <dl>
-        <dt>Tab</dt>
-        <dd>子を追加（入力中でも可）</dd>
-        <dt>Enter</dt>
-        <dd>兄弟を追加 ／ 入力を確定</dd>
-        <dt>Space / F2</dt>
-        <dd>編集（ダブルクリックでも可）</dd>
-        <dt>Shift+Enter</dt>
-        <dd>入力中に改行</dd>
-        <dt>Esc</dt>
-        <dd>入力を取り消し</dd>
-        <dt>← / →</dt>
-        <dd>親へ ／ 子へ（前にいた子に戻る）</dd>
-        <dt>↑ / ↓</dt>
-        <dd>同じ階層の上下（親をまたぐ）</dd>
-        <dt>{ALT}+↑ / ↓</dt>
-        <dd>階層に関係なく、画面上ですぐ上・下へ</dd>
-        <dt>H / Home</dt>
-        <dd>中心（タイトル）に戻る</dd>
-        <dt>Shift+←</dt>
-        <dd>枝の先頭へ（もう一度でタイトル）</dd>
-        <dt>Shift+→</dt>
-        <dd>枝の先端へ（来た道をたどる）</dd>
-        <dt>Shift+↑ / ↓</dt>
-        <dd>兄弟の先頭 ／ 末尾へ</dd>
-        <dt>Q</dt>
-        <dd>引用 ⇄ 自分の言葉（読書モード）</dd>
-        <dt>P</dt>
-        <dd>ページ番号を入力（読書モード）</dd>
-        <dt>C</dt>
-        <dd>章を追加（読書モード）</dd>
-        <dt>/</dt>
-        <dd>折りたたみ・展開</dd>
-        <dt>Delete</dt>
-        <dd>削除</dd>
-        <dt>{MOD}+Z</dt>
-        <dd>元に戻す</dd>
-        <dt>{MOD}+Shift+S</dt>
-        <dd>このマップをファイルに書き出す</dd>
-        <dt>{MOD}+O</dt>
-        <dd>ファイルを開く（画面にドロップしても可）</dd>
-        <dt>ドラッグ</dt>
-        <dd>別のノードに重ねて離すと、その下に移動</dd>
-      </dl>
+      <div className="help-body">
+        <h3>追加・編集</h3>
+        <dl>
+          <dt>Tab</dt>
+          <dd>子を追加（入力中でも可）</dd>
+          <dt>Enter</dt>
+          <dd>下に兄弟を追加 ／ 入力を確定</dd>
+          <dt>Shift+Enter</dt>
+          <dd>上に兄弟を追加（入力中は改行）</dd>
+          <dt>{MOD}+Enter</dt>
+          <dd>親を間に挿入</dd>
+          <dt>Space / F2</dt>
+          <dd>編集（ダブルクリックでも可）</dd>
+          <dt>Esc</dt>
+          <dd>入力を取り消し</dd>
+          <dt>Delete</dt>
+          <dd>削除</dd>
+        </dl>
+        <h3>選択の移動</h3>
+        <dl>
+          <dt>← / →</dt>
+          <dd>親へ ／ 子へ（前にいた子に戻る）</dd>
+          <dt>↑ / ↓</dt>
+          <dd>同じ階層の上下（親をまたぐ）</dd>
+          <dt>{MOD}+↑ / ↓</dt>
+          <dd>階層に関係なく、画面上ですぐ上・下へ</dd>
+          <dt>Shift+←</dt>
+          <dd>枝の先頭へ（もう一度でタイトル）</dd>
+          <dt>Shift+→</dt>
+          <dd>枝の先端へ（来た道をたどる）</dd>
+          <dt>Shift+↑ / ↓</dt>
+          <dd>兄弟の先頭 ／ 末尾へ</dd>
+          <dt>H / Home</dt>
+          <dd>中心（タイトル）に戻る</dd>
+        </dl>
+        <h3>並べ替え・整理</h3>
+        <dl>
+          <dt>{ALT}+↑ / ↓</dt>
+          <dd>兄弟の中で順番を入れ替え</dd>
+          <dt>ドラッグ</dt>
+          <dd>別のノードに重ねて離すと、その下に移動</dd>
+          <dt>/ ・ {MOD}+/</dt>
+          <dd>折りたたみ・展開</dd>
+          <dt>{MOD}+C / X / V</dt>
+          <dd>コピー ／ 切り取り ／ 子として貼り付け</dd>
+          <dt>{MOD}+D</dt>
+          <dd>複製</dd>
+          <dt>{MOD}+Z</dt>
+          <dd>元に戻す（Shift付きでやり直す）</dd>
+        </dl>
+        <h3>読書モード</h3>
+        <dl>
+          <dt>Q</dt>
+          <dd>引用 ⇄ 自分の言葉</dd>
+          <dt>P</dt>
+          <dd>ページ番号を入力</dd>
+          <dt>C</dt>
+          <dd>章を追加</dd>
+        </dl>
+        <h3>ファイル</h3>
+        <dl>
+          <dt>{MOD}+Shift+S</dt>
+          <dd>このマップを書き出す</dd>
+          <dt>{MOD}+O</dt>
+          <dd>ファイルを開く（画面にドロップしても可）</dd>
+        </dl>
+      </div>
       <p className="help-note">保存は自動です。データはこのブラウザ内にだけ保存されるので、ときどき「すべてバックアップ」でファイルに残してください。背景をクリックすると、この一覧は閉じます。</p>
     </aside>
   )

@@ -115,6 +115,13 @@ Chrome / Edge（パソコン）なら `.mindmap.json` をダブルクリック�
 `.xmind`（中身は ZIP。新しい XMind は content.json、XMind 8 は content.xml）を読み込めれば、
 XMind からの乗り換えが楽になる。差別化として強い。形式は実装前に要確認。
 
+### 10. ほかのアプリ向けの書き出し・読み込み
+独自形式（.mindmap.json）はそのまま残し、共通形式とは変換でやり取りする。
+- 書き出し：Markdown / OPML / FreeMind（XMind・MindNode などが読み込める）。
+  引用は “ ”、ページは（p.12）として文章に埋め込み、情報が失われないようにする
+- 読み込み：Markdown / OPML / FreeMind / XMind
+- 独自の拡張子（例：.名前）にするかは名前が決まったときに決める。中身は JSON のまま
+
 ### 7. アプリの名前
 今の「Mindmap Reader」は仮の名前。ポップで覚えやすい名前を考える。
 用途別マップを増やすなら、読書に限定しない名前の方がよい。
