@@ -162,11 +162,18 @@ function Toolbar() {
         <h1>{title || '無題'}</h1>
       </div>
       <div className="toolbar-actions">
-        <button disabled={!hasSel} onClick={() => s.addChild()} title="子を追加 (Tab)">
-          ＋ 子
+        <button disabled={!hasSel} onClick={() => s.addChild()} title="この項目を掘り下げて、詳しい項目を追加 (Tab)">
+          → 詳しく
         </button>
-        <button disabled={!hasSel} onClick={() => s.addSibling()} title="兄弟を追加 (Enter)">
-          ＋ 兄弟
+        <button disabled={!hasSel} onClick={() => s.addSibling()} title="同じ並びに項目を追加 (Enter ／ 上に追加は Shift+Enter)">
+          ↓ 並べて
+        </button>
+        <button
+          disabled={!hasSel || isRootSel}
+          onClick={() => s.insertParent()}
+          title={`選んだ項目の上に、まとめの見出しを追加 (${MOD}+Enter)`}
+        >
+          まとめる
         </button>
         <button disabled={!hasSel} onClick={() => s.selectedId && s.startEdit(s.selectedId)} title="編集 (Space / F2)">
           編集
@@ -260,7 +267,7 @@ function ReadingBar() {
             }}
           />
         </span>
-        {!editable && <span className="hint">ノードを選ぶと、種類とページを設定できます</span>}
+        {!editable && <span className="hint">項目を選ぶと、種類とページを設定できます</span>}
       </div>
       <button className="chapter-btn" onClick={s.addChapter} title="C で追加">
         ＋ 章を追加
@@ -290,13 +297,13 @@ function Help() {
         <h3>追加・編集</h3>
         <dl>
           <dt>Tab</dt>
-          <dd>子を追加（入力中でも可）</dd>
+          <dd>詳しく：掘り下げた項目を追加（入力中でも可）</dd>
           <dt>Enter</dt>
-          <dd>下に兄弟を追加 ／ 入力を確定</dd>
+          <dd>並べて：同じ並びの下に追加 ／ 入力を確定</dd>
           <dt>Shift+Enter</dt>
-          <dd>上に兄弟を追加（入力中は改行）</dd>
+          <dd>並べて：同じ並びの上に追加（入力中は改行）</dd>
           <dt>{MOD}+Enter</dt>
-          <dd>親を間に挿入</dd>
+          <dd>まとめる：上にまとめの見出しを追加</dd>
           <dt>Space / F2</dt>
           <dd>編集（ダブルクリックでも可）</dd>
           <dt>Esc</dt>
@@ -307,9 +314,9 @@ function Help() {
         <h3>選択の移動</h3>
         <dl>
           <dt>← / →</dt>
-          <dd>親へ ／ 子へ（前にいた子に戻る）</dd>
+          <dd>まとめ側へ ／ 詳しい側へ（前にいた項目に戻る）</dd>
           <dt>↑ / ↓</dt>
-          <dd>同じ階層の上下（親をまたぐ）</dd>
+          <dd>同じ深さの上下へ（並びをまたぐ）</dd>
           <dt>{MOD}+↑ / ↓</dt>
           <dd>階層に関係なく、画面上ですぐ上・下へ</dd>
           <dt>Shift+←</dt>
@@ -317,20 +324,20 @@ function Help() {
           <dt>Shift+→</dt>
           <dd>枝の先端へ（来た道をたどる）</dd>
           <dt>Shift+↑ / ↓</dt>
-          <dd>兄弟の先頭 ／ 末尾へ</dd>
+          <dd>並びの先頭 ／ 末尾へ</dd>
           <dt>H / Home</dt>
           <dd>中心（タイトル）に戻る</dd>
         </dl>
         <h3>並べ替え・整理</h3>
         <dl>
           <dt>{ALT}+↑ / ↓</dt>
-          <dd>兄弟の中で順番を入れ替え</dd>
+          <dd>並びの中で順番を入れ替え</dd>
           <dt>ドラッグ</dt>
-          <dd>別のノードに重ねて離すと、その下に移動</dd>
+          <dd>別の項目に重ねて離すと、その詳しい項目として移動</dd>
           <dt>/ ・ {MOD}+/</dt>
           <dd>折りたたみ・展開</dd>
           <dt>{MOD}+C / X / V</dt>
-          <dd>コピー ／ 切り取り ／ 子として貼り付け</dd>
+          <dd>コピー ／ 切り取り ／ 詳しい項目として貼り付け</dd>
           <dt>{MOD}+D</dt>
           <dd>複製</dd>
           <dt>{MOD}+Z</dt>
@@ -353,7 +360,7 @@ function Help() {
           <dd>ファイルを開く（画面にドロップしても可）</dd>
         </dl>
       </div>
-      <p className="help-note">保存は自動です。データはこのブラウザ内にだけ保存されるので、ときどき「すべてバックアップ」でファイルに残してください。背景をクリックすると、この一覧は閉じます。</p>
+      <p className="help-note">「詳しく」は親子の「子」、「並べて」は「兄弟」、「まとめる」は「親」にあたります。<br />保存は自動です。データはこのブラウザ内にだけ保存されるので、ときどき「すべてバックアップ」でファイルに残してください。背景をクリックすると、この一覧は閉じます。</p>
     </aside>
   )
 }

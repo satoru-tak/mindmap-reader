@@ -311,18 +311,18 @@ function DragHint() {
   if (!drag || !map) return null
   const name = (id: string) => `「${(map.nodes[id]?.text || '（空）').slice(0, 20)}」`
   const sub = countDescendants(map.nodes, drag.draggingId)
-  const subNote = sub > 0 ? `（下にある${sub}個のノードも一緒に移動）` : ''
+  const subNote = sub > 0 ? `（その先の${sub}個の項目も一緒に移動）` : ''
   let text: string
   let kind = 'idle'
   if (!drag.targetId) {
-    text = '移動先のノードに重ねてください。何もない所で離すと元に戻ります'
+    text = '移動先の項目に重ねてください。何もない所で離すと元に戻ります'
   } else if (drag.blocked === 'descendant') {
-    text = '自分の下にあるノードには移動できません'
+    text = '自分より先（詳しい側）にある項目には移動できません'
     kind = 'blocked'
   } else if (drag.blocked === 'same-parent') {
-    text = 'すでにこのノードの下にあります（離すと元に戻ります）'
+    text = 'すでにこの項目の詳しい項目です（離すと元に戻ります）'
   } else {
-    text = `離すと ${name(drag.targetId)} の下に移動します${subNote}`
+    text = `離すと ${name(drag.targetId)} の詳しい項目として移動します${subNote}`
     kind = 'ok'
   }
   return <div className={`drag-hint ${kind}`}>{text}</div>
