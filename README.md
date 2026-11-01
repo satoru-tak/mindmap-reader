@@ -21,6 +21,7 @@ ADHD/ASDなど「頭の中を整理するのが苦手」な人が、迷わず・
 - 編集中は文字数に合わせて項目が横に伸びる（周りの項目も自動でずれる）
 - 折りたたみ・展開、ズーム・パン
 - 元に戻す / やり直す
+- 画面の明るさ：ライト / ダーク / 自動（パソコン・スマホの設定に合わせる）をサイドバーで切り替え
 - 自動保存（ブラウザ内の IndexedDB。外部には一切送信しない。以前の localStorage のデータは自動で引き継ぐ）
 - ファイルへの書き出し・読み込み（`.mindmap.json`）
   - 「このマップを書き出す」「すべてバックアップ」でダウンロードフォルダに保存
@@ -171,6 +172,7 @@ npx vite preview # ビルド結果の確認 http://localhost:4173
 - `src/transfer.ts` / `src/FileActions.tsx` … ファイルの書き出し・読み込み
 - `src/page.ts` … ページ番号の入力チェック
 - `src/clipboard.ts` … コピー・貼り付け（箇条書きとの相互変換）
+- `src/theme.ts` … ライト / ダーク / 自動の切り替え。色はすべて `src/index.css` の CSS 変数で定義
 - `src/layout.ts` … 左→右のツリー自動レイアウト
 - `src/Canvas.tsx` … React Flow のキャンバス
 - `src/MindNode.tsx` … ノードの表示と編集

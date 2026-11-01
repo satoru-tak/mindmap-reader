@@ -13,6 +13,7 @@ import {
 import { isDescendant, setLayoutCache, useStore, type DragState, type NodePos } from './store'
 import { branchColor, H_GAP, layoutTree, V_GAP } from './layout'
 import MindNode, { type MindFlowNode } from './MindNode'
+import { useTheme } from './theme'
 import type { NodeRecord } from './types'
 
 /** Dashed placeholder showing where the dragged node will land. */
@@ -30,7 +31,7 @@ const nodeTypes = { mind: MindNode, ghost: GhostNode }
 const reducedMotion =
   typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 const DURATION = reducedMotion ? 0 : 200
-const ACCENT = '#4a6fd6'
+const ACCENT = 'var(--accent)'
 
 function countDescendants(nodes: NodeRecord, id: string): number {
   let n = 0
@@ -60,6 +61,7 @@ export default function Canvas() {
   const draft = useStore((s) => s.draft)
   const editingId = useStore((s) => s.editingId)
   const drag = useStore((s) => s.drag)
+  const { resolved: theme } = useTheme()
   const { fitView, getViewport, setCenter, screenToFlowPosition } = useReactFlow()
   const wrapper = useRef<HTMLDivElement>(null)
 
@@ -279,6 +281,7 @@ export default function Canvas() {
         nodes={shownNodes}
         edges={shownEdges}
         nodeTypes={nodeTypes}
+        colorMode={theme}
         onNodesChange={onNodesChange}
         onNodeDragStart={onNodeDragStart}
         onNodeDrag={onNodeDrag}
@@ -296,7 +299,7 @@ export default function Canvas() {
         minZoom={0.2}
         maxZoom={2}
       >
-        <Background gap={24} size={1} color="#d9dde4" />
+        <Background gap={24} size={1} color="var(--grid)" />
         <Controls showInteractive={false} position="bottom-right" />
       </ReactFlow>
       <DragHint />

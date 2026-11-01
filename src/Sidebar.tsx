@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useStore } from './store'
 import { FileMenu } from './FileActions'
+import { setThemePref, useTheme, type ThemePref } from './theme'
 
 const fmt = (t: number) =>
   new Date(t).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -47,6 +48,36 @@ export default function Sidebar() {
         ))}
       </ul>
       <FileMenu />
+      <ThemeSwitch />
     </nav>
+  )
+}
+
+const THEMES: { value: ThemePref; label: string; title: string }[] = [
+  { value: 'light', label: 'ライト', title: '明るい画面' },
+  { value: 'dark', label: 'ダーク', title: '暗い画面' },
+  { value: 'system', label: '自動', title: 'パソコン・スマホの設定に合わせる' },
+]
+
+function ThemeSwitch() {
+  const { pref } = useTheme()
+  return (
+    <div className="theme-switch">
+      <div className="file-menu-title">画面の明るさ</div>
+      <div className="seg theme-seg" role="radiogroup" aria-label="画面の明るさ">
+        {THEMES.map((t) => (
+          <button
+            key={t.value}
+            role="radio"
+            aria-checked={pref === t.value}
+            className={pref === t.value ? 'on' : ''}
+            title={t.title}
+            onClick={() => setThemePref(t.value)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }

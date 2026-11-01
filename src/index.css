@@ -1,16 +1,93 @@
 :root {
+  color-scheme: light;
   --bg: #f6f7f9;
   --panel: #ffffff;
   --line: #e3e6eb;
   --text: #262b33;
   --muted: #6b7380;
   --accent: #4a6fd6;
+  --accent-strong: #3f62c4;
+  --on-accent: #ffffff;
+  --accent-soft: #eaeffb;
+  --accent-text: #2f4fa8;
   --danger: #c4485d;
+  --danger-soft: #fdf0f2;
+  --hover: #f1f3f6;
+  --chip: #eceff3;
+  --dot: #9aa3b0;
+  --green: #3fa58a;
+  --green-soft: #e3f3ee;
+  --green-soft-hover: #d6ede5;
+  --green-border: #b9dccf;
+  --green-text: #2c7d67;
+  --reading-bar: #f7fbf9;
+  --node-border: #d5d9e0;
+  --placeholder: #a3aab5;
+  --root-bg: #2f3540;
+  --root-text: #ffffff;
+  --root-focus: #8fa8ec;
+  --root-drop: #3a4252;
+  --quote-bg: #fdf8ee;
+  --quote-border: #ead8b0;
+  --quote-mark: #c09a4e;
+  --quote-chip: #fbf3e2;
+  --quote-text: #8a6420;
+  --badge-bg: #eef0f4;
+  --badge-text: #5d6675;
+  --grid: #d9dde4;
+  --toast-bg: #2f3540;
+  --toast-text: #ffffff;
+  --overlay: rgba(255, 255, 255, 0.85);
+  --shadow: rgba(0, 0, 0, 0.1);
   font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", Meiryo,
     system-ui, sans-serif;
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Dark: calm, low-contrast-glare palette (not pure black / pure white) */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #15181d;
+  --panel: #1d2128;
+  --line: #2d333c;
+  --text: #e3e7ee;
+  --muted: #97a0ad;
+  --accent: #7c9cf0;
+  --accent-strong: #6a8be6;
+  --on-accent: #10141b;
+  --accent-soft: #263150;
+  --accent-text: #a9bff7;
+  --danger: #e0707f;
+  --danger-soft: #3a2228;
+  --hover: #262b33;
+  --chip: #262b33;
+  --dot: #6f7885;
+  --green: #4fbf9f;
+  --green-soft: #1d3530;
+  --green-soft-hover: #23403a;
+  --green-border: #2f564c;
+  --green-text: #7fd6bb;
+  --reading-bar: #1a2421;
+  --node-border: #353c47;
+  --placeholder: #6c7581;
+  --root-bg: #e3e7ee;
+  --root-text: #15181d;
+  --root-focus: #7c9cf0;
+  --root-drop: #c9d3e6;
+  --quote-bg: #2c271c;
+  --quote-border: #5a4a2c;
+  --quote-mark: #d1ad62;
+  --quote-chip: #3a3020;
+  --quote-text: #e3c27f;
+  --badge-bg: #2a3039;
+  --badge-text: #b3bbc7;
+  --grid: #2a3038;
+  --toast-bg: #e3e7ee;
+  --toast-text: #15181d;
+  --overlay: rgba(21, 24, 29, 0.85);
+  --shadow: rgba(0, 0, 0, 0.45);
 }
 
 * {
