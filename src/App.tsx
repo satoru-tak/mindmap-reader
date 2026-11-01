@@ -3,6 +3,7 @@ import { ReactFlowProvider } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import Canvas from './Canvas'
 import Sidebar from './Sidebar'
+import { DropZone, exportCurrent, openFilePicker, Toast } from './FileActions'
 import { useStore } from './store'
 import { MODE_LABEL, type MapMode } from './types'
 import { filterPageInput } from './page'
@@ -32,6 +33,15 @@ function useKeyboard() {
       if (mod && e.key.toLowerCase() === 'z') {
         e.preventDefault()
         return e.shiftKey ? s.redo() : s.undo()
+      }
+      if (mod && e.key.toLowerCase() === 's') {
+        // habit: ⌘S. Saving is automatic, so offer the file export instead of the browser's "save page"
+        e.preventDefault()
+        return e.shiftKey ? exportCurrent() : s.showToast('保存は自動で行われています。ファイルに書き出すには ' + MOD + '+Shift+S')
+      }
+      if (mod && e.key.toLowerCase() === 'o') {
+        e.preventDefault()
+        return openFilePicker()
       }
       if (mod && e.key.toLowerCase() === 'y') {
         e.preventDefault()
@@ -278,10 +288,14 @@ function Help() {
         <dd>削除</dd>
         <dt>{MOD}+Z</dt>
         <dd>元に戻す</dd>
+        <dt>{MOD}+Shift+S</dt>
+        <dd>このマップをファイルに書き出す</dd>
+        <dt>{MOD}+O</dt>
+        <dd>ファイルを開く（画面にドロップしても可）</dd>
         <dt>ドラッグ</dt>
         <dd>別のノードに重ねて離すと、その下に移動</dd>
       </dl>
-      <p className="help-note">保存は自動です。データはこのブラウザ内にだけ保存されます。背景をクリックすると、この一覧は閉じます。</p>
+      <p className="help-note">保存は自動です。データはこのブラウザ内にだけ保存されるので、ときどき「すべてバックアップ」でファイルに残してください。背景をクリックすると、この一覧は閉じます。</p>
     </aside>
   )
 }
@@ -291,12 +305,14 @@ export default function App() {
   return (
     <ReactFlowProvider>
       <div className="app">
+        <DropZone />
         <Sidebar />
         <main className="main">
           <Toolbar />
           <ReadingBar />
           <Canvas />
           <Help />
+          <Toast />
         </main>
       </div>
     </ReactFlowProvider>

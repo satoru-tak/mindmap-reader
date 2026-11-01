@@ -21,7 +21,10 @@ ADHD/ASDなど「頭の中を整理するのが苦手」な人が、迷わず・
 - 編集中は文字数に合わせてノードが横に伸びる（周りのノードも自動でずれる）
 - 折りたたみ・展開、ズーム・パン
 - 元に戻す / やり直す
-- 自動保存（ブラウザ内の localStorage。外部には一切送信しない）
+- 自動保存（ブラウザ内の IndexedDB。外部には一切送信しない。以前の localStorage のデータは自動で引き継ぐ）
+- ファイルへの書き出し・読み込み（`.mindmap.json`）
+  - 「このマップを書き出す」「すべてバックアップ」でダウンロードフォルダに保存
+  - 「ファイルを開く」または画面へのドラッグ＆ドロップで読み込み。既存のマップは上書きせず、新しいマップとして追加
 - 日本語IMEの変換確定 Enter で誤動作しない
 
 ## 操作
@@ -46,13 +49,40 @@ ADHD/ASDなど「頭の中を整理するのが苦手」な人が、迷わず・
 | P | ページ番号を入力（読書モード） |
 | C | 章を追加（読書モード） |
 | Ctrl(⌘)+Z / Ctrl(⌘)+Shift+Z | 元に戻す / やり直す |
+| Ctrl(⌘)+Shift+S | このマップをファイルに書き出す |
+| Ctrl(⌘)+O | ファイルを開く |
+
+## 自分のパソコンで動かす（Mac）
+
+置き場所は `~/projects/mindmap-reader` に統一する。Node.js が必要（`node -v` で確認）。
+
+**初回**
+
+```bash
+mkdir -p ~/projects && cd ~/projects
+git clone https://github.com/satoru-tak/mindmap-reader.git
+cd mindmap-reader
+npm install
+npm run dev
+```
+
+ブラウザで http://localhost:5173 を開く。止めるときはターミナルで `Ctrl+C`。
+
+**2回目以降（最新版にして起動）**
+
+```bash
+cd ~/projects/mindmap-reader && git pull && npm install && npm run dev
+```
+
+注意：保存されるマップは開いた場所（localhost、プレビューページ、将来の公開URL）ごとに別々。
+移したいときは「すべてバックアップ」で書き出し、移したい先で「ファイルを開く」。
 
 ## 開発
 
 ```bash
-npm install
-npm run dev      # http://localhost:5173
-npm run build    # dist/ に出力
+npm run dev      # 開発サーバー http://localhost:5173
+npm run build    # 本番用に dist/ へ出力
+npx vite preview # ビルド結果の確認 http://localhost:4173
 ```
 
 技術構成：Vite + React + TypeScript、[React Flow](https://reactflow.dev/)（キャンバス）、Zustand（状態管理）。
@@ -60,6 +90,9 @@ npm run build    # dist/ に出力
 主なファイル
 
 - `src/store.ts` … マップ・ノードの状態と操作、Undo/Redo、自動保存
+- `src/storage.ts` … 保存（IndexedDB、使えないときは localStorage）
+- `src/transfer.ts` / `src/FileActions.tsx` … ファイルの書き出し・読み込み
+- `src/page.ts` … ページ番号の入力チェック
 - `src/layout.ts` … 左→右のツリー自動レイアウト
 - `src/Canvas.tsx` … React Flow のキャンバス
 - `src/MindNode.tsx` … ノードの表示と編集

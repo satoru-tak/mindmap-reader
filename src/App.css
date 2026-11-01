@@ -594,3 +594,71 @@
 .mind-node.depth-0 .page-badge {
   display: none;
 }
+
+/* ---------- File menu ---------- */
+.sidebar .map-list {
+  flex: 1;
+}
+.file-menu {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.file-menu-title {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 0 8px 4px;
+}
+.file-menu button {
+  border: 0;
+  background: none;
+  text-align: left;
+  padding: 6px 8px;
+  border-radius: 7px;
+  font-size: 13px;
+}
+.file-menu button:hover {
+  background: #f1f3f6;
+}
+
+/* ---------- Drop zone ---------- */
+.drop-zone {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--accent) 10%, rgba(255, 255, 255, 0.85));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.drop-zone-inner {
+  border: 3px dashed var(--accent);
+  border-radius: 16px;
+  padding: 40px 56px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #2f4fa8;
+  background: var(--panel);
+}
+
+/* ---------- Toast ---------- */
+.toast {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  background: #2f3540;
+  color: #fff;
+  font-size: 13px;
+  padding: 9px 16px;
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+  max-width: min(640px, 90%);
+}
+.toast.error {
+  background: var(--danger);
+}

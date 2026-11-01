@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useStore } from './store'
+import { FileMenu } from './FileActions'
 
 const fmt = (t: number) =>
   new Date(t).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -45,6 +46,7 @@ export default function Sidebar() {
           </li>
         ))}
       </ul>
+      <FileMenu />
     </nav>
   )
 }

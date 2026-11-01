@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { MapMode, MindMap, MindNodeData, NodeRecord } from './types'
-import { loadState, saveState } from './storage'
+import { getPreloaded, saveState } from './storage'
 import { normalizePage } from './page'
 
 const HISTORY_LIMIT = 100
@@ -130,6 +130,10 @@ interface State {
   goHome: () => void
   helpOpen: boolean
   setHelpOpen: (open: boolean) => void
+  /** add imported maps (always as new maps) and open the first one */
+  importMaps: (maps: MindMap[]) => void
+  toast: { id: number; text: string; kind: 'info' | 'error' } | null
+  showToast: (text: string, kind?: 'info' | 'error') => void
 }
 
 const cloneNodes = (nodes: NodeRecord): NodeRecord => {
@@ -147,7 +151,7 @@ export function isDescendant(nodes: NodeRecord, ancestorId: string, id: string):
   return false
 }
 
-const initial = loadState()
+const initial = getPreloaded()
 const firstMap = createMapFromTemplate('reading')
 const initialMaps = initial && Object.keys(initial.maps).length ? initial.maps : { [firstMap.id]: firstMap }
 const initialCurrent =
@@ -209,6 +213,40 @@ export const useStore = create<State>((set, get) => {
       set({ helpOpen: open })
     },
     lastAddedId: null,
+    toast: null,
+    showToast: (text, kind = 'info') => {
+      const id = Date.now()
+      set({ toast: { id, text, kind } })
+      setTimeout(() => get().toast?.id === id && set({ toast: null }), 3500)
+    },
+    importMaps: (imported) => {
+      if (!imported.length) return
+      set((s) => {
+        const maps = { ...s.maps }
+        for (const m of imported) {
+          // same title as an existing map: mark it so the two can be told apart in the list
+          const titles = new Set(Object.values(maps).map((x) => x.title))
+          if (titles.has(m.title)) {
+            let n = 2
+            while (titles.has(`${m.title}（${n}）`)) n++
+            const title = `${m.title}（${n}）`
+            m.nodes[m.rootId] = { ...m.nodes[m.rootId], text: title }
+            m.title = title
+          }
+          maps[m.id] = m
+        }
+        const first = imported[0]
+        return {
+          maps,
+          currentMapId: first.id,
+          selectedId: first.rootId,
+          editingId: null,
+          past: [],
+          future: [],
+          fitToken: s.fitToken + 1,
+        }
+      })
+    },
     draft: null,
     drag: null,
     setDraft: (id, text) => set({ draft: { id, text } }),
@@ -522,8 +560,22 @@ useStore.subscribe((s, prev) => {
 
 // Auto-save: no save button, everything is persisted shortly after each change.
 let saveTimer: ReturnType<typeof setTimeout> | undefined
+let dirty = false
+const flush = () => {
+  clearTimeout(saveTimer)
+  if (!dirty) return
+  dirty = false
+  const s = useStore.getState()
+  void saveState({ maps: s.maps, currentMapId: s.currentMapId })
+}
 useStore.subscribe((s, prev) => {
   if (s.maps === prev.maps && s.currentMapId === prev.currentMapId) return
+  dirty = true
   clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => saveState({ maps: s.maps, currentMapId: s.currentMapId }), 300)
+  saveTimer = setTimeout(flush, 300)
 })
+// save right away when the tab is hidden or closed, so the last edit is never lost
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', flush)
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && flush())
+}
