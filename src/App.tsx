@@ -307,7 +307,9 @@ function Help() {
           <dt>Space / F2</dt>
           <dd>編集（ダブルクリックでも可）</dd>
           <dt>Esc</dt>
-          <dd>入力を取り消し</dd>
+          <dd>入力を取り消し（空の項目は消えて元の項目に戻る）</dd>
+          <dt>空のまま Tab</dt>
+          <dd>Enter を押し間違えたら：今追加した空の項目を「詳しく」に変更（Shift+Tab で逆）</dd>
           <dt>Delete</dt>
           <dd>削除</dd>
         </dl>

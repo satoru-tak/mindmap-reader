@@ -145,6 +145,18 @@ function NodeEditor({
           finish(onCommit, text)
         } else if (e.key === 'Tab') {
           e.preventDefault()
+          const st = useStore.getState()
+          const isNewEmpty = !text.trim() && st.lastAddedId === st.editingId
+          if (isNewEmpty) {
+            // pressed Enter by mistake? Tab turns the empty new item into a detail of the
+            // starting item; Shift+Tab turns a new detail into an item next to it
+            const before = st.editingId
+            done.current = true // this editor is about to be replaced; don't commit it on blur
+            st.retargetNew(e.shiftKey ? 'sibling' : 'child')
+            if (useStore.getState().editingId === before) done.current = false // nothing changed
+            return
+          }
+          if (e.shiftKey) return
           finish(onCommitAndAddChild, text)
         } else if (e.key === 'Escape') {
           e.preventDefault()

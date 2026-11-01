@@ -112,6 +112,15 @@ interface State {
   /** Finish editing. An empty, freshly added node is discarded as if it never existed. */
   commitEdit: (id: string, text: string) => void
   lastAddedId: string | null
+  /** the item that was selected when lastAddedId was created, and how it was added */
+  lastAddedFrom: string | null
+  lastAddedKind: 'child' | 'after' | 'before' | null
+  /**
+   * The just-added item is still empty and the user changes their mind:
+   * 'child' (Tab) → make it a detail of the starting item instead,
+   * 'sibling' (Shift+Tab) → put it next to the starting item instead.
+   */
+  retargetNew: (as: 'child' | 'sibling') => void
   deleteNode: (id?: string) => void
   toggleCollapse: (id?: string) => void
   moveNode: (id: string, newParentId: string) => void
@@ -235,6 +244,8 @@ export const useStore = create<State>((set, get) => {
       set({ helpOpen: open })
     },
     lastAddedId: null,
+    lastAddedFrom: null,
+    lastAddedKind: null,
     toast: null,
     showToast: (text, kind = 'info') => {
       const id = Date.now()
@@ -331,7 +342,7 @@ export const useStore = create<State>((set, get) => {
         nodes[c.id] = c
         parent.children.push(c.id)
         parent.collapsed = false
-        return { selectedId: c.id, editingId: c.id, lastAddedId: c.id, draft: null, editCaretEnd: false }
+        return { selectedId: c.id, editingId: c.id, lastAddedId: c.id, lastAddedFrom: parent.id, lastAddedKind: 'child', draft: null, editCaretEnd: false }
       })
     },
 
@@ -345,7 +356,7 @@ export const useStore = create<State>((set, get) => {
         const c = node('', parent.id)
         nodes[c.id] = c
         parent.children.splice(parent.children.indexOf(target) + 1, 0, c.id)
-        return { selectedId: c.id, editingId: c.id, lastAddedId: c.id, draft: null, editCaretEnd: false }
+        return { selectedId: c.id, editingId: c.id, lastAddedId: c.id, lastAddedFrom: target, lastAddedKind: 'after', draft: null, editCaretEnd: false }
       })
     },
 
@@ -359,7 +370,7 @@ export const useStore = create<State>((set, get) => {
         const c = node('', parent.id)
         nodes[c.id] = c
         parent.children.splice(parent.children.indexOf(target), 0, c.id)
-        return { selectedId: c.id, editingId: c.id, lastAddedId: c.id, draft: null, editCaretEnd: false }
+        return { selectedId: c.id, editingId: c.id, lastAddedId: c.id, lastAddedFrom: target, lastAddedKind: 'before', draft: null, editCaretEnd: false }
       })
     },
 
@@ -432,9 +443,10 @@ export const useStore = create<State>((set, get) => {
       const n = map.nodes[id]
       if (!text.trim() && id !== map.rootId && !n.children.length) {
         if (get().lastAddedId === id && n.text === '') {
-          const parentId = n.parentId
+          // cancelled a just-added empty item: go back to the item you started from
+          const back = get().lastAddedFrom && map.nodes[get().lastAddedFrom!] ? get().lastAddedFrom : n.parentId
           get().undo()
-          set({ future: [], lastAddedId: null, selectedId: parentId })
+          set({ future: [], lastAddedId: null, lastAddedFrom: null, lastAddedKind: null, selectedId: back })
         } else get().deleteNode(id)
         return set({ editingId: null, draft: null })
       }
@@ -445,6 +457,20 @@ export const useStore = create<State>((set, get) => {
         }, false)
       } else get().updateText(id, text)
       set({ editingId: null, lastAddedId: null, draft: null, editCaretEnd: false })
+    },
+
+    retargetNew: (as) => {
+      const { lastAddedId, lastAddedFrom, lastAddedKind, editingId } = get()
+      const map = current()
+      if (!map || !lastAddedId || editingId !== lastAddedId || !lastAddedFrom) return
+      if (map.nodes[lastAddedId]?.text !== '') return
+      if (as === 'child' && lastAddedKind === 'child') return
+      if (as === 'sibling' && (lastAddedKind !== 'child' || lastAddedFrom === map.rootId)) return
+      const from = lastAddedFrom
+      get().undo() // remove the empty item without leaving a trace in history
+      set({ future: [] })
+      if (as === 'child') get().addChild(from)
+      else get().addSibling(from)
     },
 
     deleteNode: (id) => {
