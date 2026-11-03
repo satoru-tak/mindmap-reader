@@ -667,6 +667,7 @@
 .help-body {
   max-height: min(60vh, 520px);
   overflow-y: auto;
+  overflow-x: hidden; /* vertical scroll only */
   padding-right: 4px;
 }
 .help h3 {
@@ -680,7 +681,10 @@
   margin-top: 2px;
 }
 .help dl {
-  grid-template-columns: 112px 1fr;
+  grid-template-columns: 112px minmax(0, 1fr);
+}
+.help dd {
+  overflow-wrap: anywhere;
 }
 
 /* ---------- Theme switch ---------- */
