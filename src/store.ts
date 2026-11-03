@@ -38,7 +38,7 @@ function createMapFromTemplate(mode: MapMode): MindMap {
   nodes[root.id] = root
   if (mode === 'reading') {
     root.children.push(makeChapter(nodes, root.id, 1).id)
-    for (const t of ['気づき・感想', '行動に移すこと']) {
+    for (const t of ['全体の気づき・感想', '全体で行動に移すこと']) {
       const c = node(t, root.id)
       nodes[c.id] = c
       root.children.push(c.id)
@@ -150,6 +150,11 @@ interface State {
   goHome: () => void
   helpOpen: boolean
   setHelpOpen: (open: boolean) => void
+  /** narrow screens: the sidebar opens as a drawer */
+  sidebarOpen: boolean
+  setSidebarOpen: (open: boolean) => void
+  /** an item to highlight briefly (e.g. a chapter just added), so it's easy to find */
+  flashId: string | null
   /** add imported maps (always as new maps) and open the first one */
   importMaps: (maps: MindMap[]) => void
   toast: { id: number; text: string; kind: 'info' | 'error' } | null
@@ -213,6 +218,13 @@ export const useStore = create<State>((set, get) => {
     })
   }
 
+  let flashTimer: ReturnType<typeof setTimeout> | undefined
+  const flash = (id: string) => {
+    clearTimeout(flashTimer)
+    setTimeout(() => set({ flashId: id }))
+    flashTimer = setTimeout(() => set({ flashId: null }), 1800)
+  }
+
   const current = () => {
     const { maps, currentMapId } = get()
     return currentMapId ? maps[currentMapId] : null
@@ -229,10 +241,13 @@ export const useStore = create<State>((set, get) => {
     centerToken: 0,
     editCaretEnd: false,
     helpOpen: (() => {
+      // narrow screens start closed (the list would cover the map); otherwise remember the choice
+      const narrow = typeof window !== 'undefined' && window.innerWidth <= 720
       try {
-        return localStorage.getItem('mindmap-reader:help') !== 'closed'
+        const saved = localStorage.getItem('mindmap-reader:help')
+        return saved ? saved === 'open' : !narrow
       } catch {
-        return true
+        return !narrow
       }
     })(),
     setHelpOpen: (open) => {
@@ -243,6 +258,9 @@ export const useStore = create<State>((set, get) => {
       }
       set({ helpOpen: open })
     },
+    sidebarOpen: false,
+    setSidebarOpen: (open) => set({ sidebarOpen: open }),
+    flashId: null,
     lastAddedId: null,
     lastAddedFrom: null,
     lastAddedKind: null,
@@ -291,6 +309,7 @@ export const useStore = create<State>((set, get) => {
         maps: { ...s.maps, [map.id]: map },
         currentMapId: map.id,
         selectedId: map.rootId,
+        sidebarOpen: false,
         editingId: map.rootId, // start typing the title right away
         editCaretEnd: false,
         past: [],
@@ -301,6 +320,7 @@ export const useStore = create<State>((set, get) => {
 
     selectMap: (id) =>
       set((s) => ({
+        sidebarOpen: false,
         currentMapId: id,
         selectedId: s.maps[id]?.rootId ?? null,
         editingId: null,
@@ -655,11 +675,12 @@ export const useStore = create<State>((set, get) => {
         const nums = chapters.map((c) => Number(map.nodes[c].text.match(/\d+/)?.[0] ?? 0))
         const ch = makeChapter(nodes, map.rootId, Math.max(0, ...nums) + 1)
         const r = nodes[map.rootId]
-        // place it right after the last chapter (before 気づき・感想 etc.)
+        // place it right after the last chapter (before the whole-book summary items)
         const after = chapters.length ? r.children.indexOf(chapters[chapters.length - 1]) + 1 : 0
         r.children.splice(after, 0, ch.id)
         r.collapsed = false
         // edit the chapter title with the caret at the end, ready to type its name
+        flash(ch.id)
         return { selectedId: ch.id, editingId: ch.id, draft: null, editCaretEnd: true, lastAddedId: null }
       })
     },

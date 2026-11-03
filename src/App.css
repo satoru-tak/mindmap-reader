@@ -344,12 +344,65 @@
   font-size: 12px;
 }
 
+/* ---------- Narrow screens: sidebar as a drawer, help as a bottom sheet ---------- */
+.menu-btn {
+  display: none;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 7px;
+  padding: 2px 9px;
+  font-size: 16px;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+.sidebar-backdrop {
+  display: none;
+}
 @media (max-width: 720px) {
+  .menu-btn {
+    display: inline-block;
+  }
   .sidebar {
-    display: none;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    width: min(280px, 85vw);
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: none;
+  }
+  .sidebar.open {
+    transform: none;
+    box-shadow: 4px 0 24px var(--shadow);
+  }
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 39;
+    background: rgba(0, 0, 0, 0.3);
   }
   .help {
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    width: auto;
+  }
+  .help-body {
+    max-height: 32vh;
+  }
+  .help-note {
     display: none;
+  }
+  .help-toggle {
+    left: 8px;
+    bottom: 8px;
+  }
+  .toolbar {
+    padding: 8px 10px;
+    gap: 8px;
   }
 }
 
@@ -719,4 +772,25 @@
 }
 .react-flow {
   --xy-background-color: var(--bg);
+}
+
+/* ---------- Highlight a just-added chapter ---------- */
+.mind-node.flash {
+  animation: flash 1.8s ease-out;
+}
+@keyframes flash {
+  0%,
+  40% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--green) 45%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* no animation: a steady outline for the same time instead */
+  .mind-node.flash {
+    outline: 3px solid var(--green);
+    outline-offset: 3px;
+  }
 }

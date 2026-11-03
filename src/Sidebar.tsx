@@ -9,12 +9,15 @@ const fmt = (t: number) =>
 export default function Sidebar() {
   const maps = useStore((s) => s.maps)
   const currentMapId = useStore((s) => s.currentMapId)
-  const { createMap, selectMap, deleteMap } = useStore.getState()
+  const sidebarOpen = useStore((s) => s.sidebarOpen)
+  const { createMap, selectMap, deleteMap, setSidebarOpen } = useStore.getState()
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const list = Object.values(maps).sort((a, b) => b.updatedAt - a.updatedAt)
 
   return (
-    <nav className="sidebar">
+    <>
+    {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
+    <nav className={`sidebar${sidebarOpen ? ' open' : ''}`}>
       <div className="brand">Mindmap Reader</div>
       <div className="new-buttons">
         <button className="primary" onClick={() => createMap('reading')}>
@@ -50,6 +53,7 @@ export default function Sidebar() {
       <FileMenu />
       <ThemeSwitch />
     </nav>
+    </>
   )
 }
 

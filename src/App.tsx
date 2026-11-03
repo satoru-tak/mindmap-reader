@@ -184,6 +184,9 @@ function Toolbar() {
   return (
     <header className="toolbar">
       <div className="toolbar-title">
+        <button className="menu-btn" aria-label="マップ一覧を開く" onClick={() => s.setSidebarOpen(true)}>
+          ☰
+        </button>
         <div className="mode-switch" role="radiogroup" aria-label="モード">
           {(['reading', 'free'] as MapMode[]).map((m) => (
             <button

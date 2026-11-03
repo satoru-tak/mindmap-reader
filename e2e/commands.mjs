@@ -8,8 +8,8 @@
  * Each test starts from a fresh browser profile with the default reading map:
  *   本のタイトル
  *   ├ 第1章 ─ 要点 / 引用 / 気づき
- *   ├ 気づき・感想
- *   └ 行動に移すこと
+ *   ├ 全体の気づき・感想
+ *   └ 全体で行動に移すこと
  * ⌘ (Meta) and Ctrl are both tested for shortcuts that use them.
  */
 import { createRequire } from 'node:module'
@@ -254,13 +254,13 @@ test('↑ ↓：同じ深さの上下（並びをまたぐ）', async (p) => {
   eq(await h.selected(p), '要点', '↑')
   await click(p, '第1章')
   await p.keyboard.press('ArrowDown')
-  eq(await h.selected(p), '気づき・感想', '↓（深さ1）')
+  eq(await h.selected(p), '全体の気づき・感想', '↓（深さ1）')
 })
 
 testMod('⌘/Ctrl+↑↓：深さに関係なく、読む順で前・次の項目へ', async (p, mod) => {
   await click(p, '気づき') // 第1章 > 気づき（深さ2）
   await p.keyboard.press(`${mod}+ArrowDown`)
-  eq(await h.selected(p), '気づき・感想', '次は深さ1の気づき・感想')
+  eq(await h.selected(p), '全体の気づき・感想', '次は深さ1の全体の気づき・感想')
   await p.keyboard.press(`${mod}+ArrowUp`)
   eq(await h.selected(p), '気づき', '前で戻る')
   await click(p, '要点')
@@ -268,9 +268,9 @@ testMod('⌘/Ctrl+↑↓：深さに関係なく、読む順で前・次の項�
   eq(await h.selected(p), '第1章', '要点の前は第1章')
   await p.keyboard.press(`${mod}+ArrowUp`)
   eq(await h.selected(p), '本のタイトル', '第1章の前はタイトル')
-  await click(p, '行動に移すこと')
+  await click(p, '全体で行動に移すこと')
   await p.keyboard.press(`${mod}+ArrowDown`)
-  eq(await h.selected(p), '行動に移すこと', '最後ではそれ以上動かない')
+  eq(await h.selected(p), '全体で行動に移すこと', '最後ではそれ以上動かない')
 })
 
 test('Shift+←：枝の先頭 → もう一度でタイトル', async (p) => {
@@ -359,10 +359,10 @@ testMod('⌘/Ctrl+C → V：枝ごとコピーして貼り付け（引用・ペ�
   await p.keyboard.press('Enter')
   await click(p, '第1章')
   await p.keyboard.press(`${mod}+c`)
-  await click(p, '行動に移すこと')
+  await click(p, '全体で行動に移すこと')
   await p.keyboard.press(`${mod}+v`)
   await pause(p, 250)
-  eq(await h.kids(p, '行動に移すこと'), ['第1章'], '貼り付け先')
+  eq(await h.kids(p, '全体で行動に移すこと'), ['第1章'], '貼り付け先')
   const copies = await p.evaluate(() => {
     const s = window.__mindmap.getState()
     const m = s.maps[s.currentMapId]
@@ -375,10 +375,10 @@ testMod('⌘/Ctrl+X：切り取り → V で移動', async (p, mod) => {
   await click(p, '引用')
   await p.keyboard.press(`${mod}+x`)
   eq(await h.kids(p, '第1章'), ['要点', '気づき'], '切り取り')
-  await click(p, '気づき・感想')
+  await click(p, '全体の気づき・感想')
   await p.keyboard.press(`${mod}+v`)
   await pause(p, 250)
-  eq(await h.kids(p, '気づき・感想'), ['引用'], '貼り付け')
+  eq(await h.kids(p, '全体の気づき・感想'), ['引用'], '貼り付け')
 })
 
 testMod('⌘/Ctrl+D：複製', async (p, mod) => {
@@ -388,14 +388,14 @@ testMod('⌘/Ctrl+D：複製', async (p, mod) => {
 })
 
 testMod('⌘/Ctrl+V：ほかのアプリの箇条書き・見出しを貼り付け', async (p, mod) => {
-  await click(p, '気づき・感想')
+  await click(p, '全体の気づき・感想')
   await p.evaluate(() => {
     const dt = new DataTransfer()
     dt.setData('text/plain', '# 外部\n- A\n  - A1\n- B')
     window.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }))
   })
   void mod
-  eq(await h.kids(p, '気づき・感想'), ['外部'], '見出し')
+  eq(await h.kids(p, '全体の気づき・感想'), ['外部'], '見出し')
   eq(await h.kids(p, '外部'), ['A', 'B'], '箇条書き')
   eq(await h.kids(p, 'A'), ['A1'], '字下げ')
 })
@@ -430,12 +430,12 @@ test('ドラッグ：別の項目に重ねて移動 / 自分の先には移動�
     await pause(p, 300)
     return hint
   }
-  const hint = await drag('行動に移すこと', '要点')
+  const hint = await drag('全体で行動に移すこと', '要点')
   eq(hint.includes('要点'), true, '案内文に移動先が出る')
-  eq(await h.kids(p, '要点'), ['行動に移すこと'], '移動した')
+  eq(await h.kids(p, '要点'), ['全体で行動に移すこと'], '移動した')
   const hint2 = await drag('第1章', '引用')
   eq(hint2.includes('移動できません'), true, '自分の先には移動できない案内')
-  eq(await h.kids(p, '本のタイトル'), ['第1章', '気づき・感想'], '構造は変わらない')
+  eq(await h.kids(p, '本のタイトル'), ['第1章', '全体の気づき・感想'], '構造は変わらない')
 })
 
 // =====================================================================
@@ -462,7 +462,7 @@ test('C：章を追加（次の番号、型つき、名前を続けて入力）'
   await p.keyboard.press('c')
   await p.keyboard.type(' 名前')
   await p.keyboard.press('Enter')
-  eq(await h.kids(p, '本のタイトル'), ['第1章', '第2章 名前', '気づき・感想', '行動に移すこと'], '第1章の次')
+  eq(await h.kids(p, '本のタイトル'), ['第1章', '第2章 名前', '全体の気づき・感想', '全体で行動に移すこと'], '第1章の次')
   eq(await h.kids(p, '第2章 名前'), ['要点', '引用', '気づき'], '型')
 })
 
@@ -559,6 +559,37 @@ test('新しいマップ：読書 / シンプル、削除', async (p) => {
   await p.locator('.map-list li.active .map-delete').click({ force: true })
   await p.click('text=削除する')
   eq(await h.mapCount(p), 1, '削除')
+})
+
+test('C：追加した章が少しの間ハイライトされる', async (p) => {
+  await p.keyboard.press('c')
+  await pause(p, 200)
+  eq(await p.locator('.mind-node.flash').count(), 1, 'ハイライト中')
+  await p.keyboard.press('Enter')
+  await pause(p, 2000)
+  eq(await p.locator('.mind-node.flash').count(), 0, '時間がたつと消える')
+})
+
+test('狭い画面：☰ でマップ一覧を開き、選ぶと閉じる / 操作方法も見られる', async (p) => {
+  await p.setViewportSize({ width: 600, height: 800 })
+  await pause(p, 200)
+  eq(await p.locator('.menu-btn').isVisible(), true, '☰ が出る')
+  const left = () => p.locator('.sidebar').evaluate((el) => Math.round(el.getBoundingClientRect().right))
+  eq((await left()) <= 0, true, '最初は隠れている')
+  await p.click('.menu-btn')
+  await pause(p, 300)
+  eq((await left()) > 0, true, '開く')
+  await p.click('text=＋ シンプルマップ')
+  await pause(p, 300)
+  eq((await left()) <= 0, true, 'マップを作ると閉じる')
+  await p.keyboard.press('Escape')
+  await p.click('.menu-btn')
+  await pause(p, 300)
+  await p.mouse.click(580, 400) // 背景（暗い部分）
+  await pause(p, 300)
+  eq((await left()) <= 0, true, '外側を押すと閉じる')
+  await p.click('.help-toggle')
+  eq(await p.locator('.help').isVisible(), true, '操作方法が見られる')
 })
 
 // =====================================================================

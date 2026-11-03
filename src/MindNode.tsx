@@ -20,6 +20,7 @@ export type MindFlowNode = Node<
 function MindNodeView({ id, data, width, height }: NodeProps<MindFlowNode>) {
   const selected = useStore((s) => s.selectedId === id)
   const editing = useStore((s) => s.editingId === id)
+  const flashing = useStore((s) => s.flashId === id)
   const dropState = useStore((s) =>
     s.drag?.targetId === id ? (s.drag.blocked ? 'drop-blocked' : 'drop-target') : '',
   )
@@ -29,7 +30,7 @@ function MindNodeView({ id, data, width, height }: NodeProps<MindFlowNode>) {
 
   return (
     <div
-      className={`mind-node depth-${Math.min(data.depth, 2)}${selected ? ' selected' : ''}${editing ? ' editing' : ''}${data.quote ? ' quote' : ''} ${dropState}`}
+      className={`mind-node depth-${Math.min(data.depth, 2)}${selected ? ' selected' : ''}${editing ? ' editing' : ''}${data.quote ? ' quote' : ''}${flashing ? ' flash' : ''} ${dropState}`}
       style={
         {
           width,
