@@ -75,6 +75,8 @@ export function layoutTree(
   rootId: string,
   editing?: { id: string; text: string } | null,
   showReading = false,
+  /** 線がつながる高さ。center＝ノードの真ん中、bottom＝ノードの下の端（下線の形） */
+  anchor: 'center' | 'bottom' = 'center',
 ): LaidOutNode[] {
   const out: LaidOutNode[] = []
   const sizes = new Map<string, { width: number; height: number }>()
@@ -114,8 +116,42 @@ export function layoutTree(
     })
   }
 
+  /*
+   * 下線の形：線は各ノードの下の端につながる。親の下の端を、最初と最後の子の
+   * 下の端のちょうど真ん中に置く。子が1つ（または奇数個の真ん中）なら、
+   * 親と子の下線が一直線になる。タイトル（カード）だけは真ん中につながる。
+   */
+  type Block = { items: LaidOutNode[]; height: number; anchor: number }
+  const anchorOf = (h: number, depth: number) => (depth > 0 ? h : h / 2)
+  const block = (id: string, depth: number, x: number, branch: number): Block => {
+    const size = sizes.get(id)!
+    const own = anchorOf(size.height, depth)
+    const kids = visibleChildren(id)
+    if (!kids.length) {
+      return { items: [{ id, x, y: 0, ...size, depth, branch }], height: size.height, anchor: own }
+    }
+    const childX = x + size.width + H_GAP
+    let cursor = 0
+    const placed: { b: Block; top: number }[] = []
+    kids.forEach((k, i) => {
+      const b = block(k, depth + 1, childX, depth === 0 ? i : branch)
+      placed.push({ b, top: cursor })
+      cursor += b.height + V_GAP
+    })
+    const stack = cursor - V_GAP
+    const first = placed[0]
+    const last = placed[placed.length - 1]
+    const mid = (first.top + first.b.anchor + last.top + last.b.anchor) / 2
+    const selfTop = mid - own
+    const shift = Math.max(0, -selfTop)
+    const items: LaidOutNode[] = [{ id, x, y: selfTop + shift, ...size, depth, branch }]
+    for (const { b, top } of placed) for (const it of b.items) items.push({ ...it, y: it.y + top + shift })
+    return { items, height: Math.max(stack, selfTop + size.height) + shift, anchor: mid + shift }
+  }
+
   if (!nodes[rootId]) return out
   measure(rootId, 0)
+  if (anchor === 'bottom') return block(rootId, 0, 0, -1).items
   place(rootId, 0, 0, 0, -1)
   return out
 }

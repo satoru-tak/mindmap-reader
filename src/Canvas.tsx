@@ -98,7 +98,7 @@ export default function Canvas() {
   const { flowNodes, edges } = useMemo(() => {
     if (!map) return { flowNodes: [] as MindFlowNode[], edges: [] as Edge[] }
     const showReading = map.mode === 'reading'
-    const laid = layoutTree(map.nodes, map.rootId, editingText, showReading)
+    const laid = layoutTree(map.nodes, map.rootId, editingText, showReading, look.node === 'underline' ? 'bottom' : 'center')
     const cache = new Map<string, NodePos>()
     for (const l of laid) cache.set(l.id, { x: l.x, y: l.y, height: l.height, depth: l.depth })
     setLayoutCache(cache)

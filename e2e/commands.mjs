@@ -571,6 +571,8 @@ test('見た目のテーマ：切り替え・形・再読み込み後も残る',
     })
   })
   eq(fit, true, '線と下線がつながっている')
+  const bottom = (t) => p.locator('.mind-node', { hasText: new RegExp(`^${t}`) }).first().evaluate((el) => el.getBoundingClientRect().bottom)
+  eq(Math.abs((await bottom('第1章')) - (await bottom('引用'))) < 1, true, '親と真ん中の子の下線が一直線')
   await p.reload()
   await p.waitForSelector('.mind-node')
   eq((await root()).look, 'note', '再読み込み後も残る')
