@@ -110,7 +110,7 @@ function LookPicker() {
               ))}
             </span>
             <span className="look-name">{l.name}</span>
-            <span className={`look-tag ${l.tier}`}>{l.tier === 'free' ? '無料' : '有料予定'}</span>
+            {l.tier === 'paid' && <span className="look-tag">有料</span>}
           </button>
         ))}
       </div>

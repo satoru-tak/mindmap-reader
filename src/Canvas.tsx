@@ -10,6 +10,11 @@ import {
   useReactFlow,
   useUpdateNodeInternals,
   type Edge,
+  type EdgeProps,
+  BaseEdge,
+  getBezierPath,
+  getSmoothStepPath,
+  getStraightPath,
   type OnNodeDrag,
 } from '@xyflow/react'
 import { isDescendant, setLayoutCache, useStore, type DragState, type NodePos } from './store'
@@ -29,6 +34,25 @@ function GhostNode({ data, width, height }: { data: { text: string }; width?: nu
 }
 
 const nodeTypes = { mind: MindNode, ghost: GhostNode }
+
+/**
+ * 「下線」の形のテーマ用の線。親からの線と、子の下線を1本の線として描く。
+ * 下線を CSS の枠線で描くと、拡大率によって線と1px ほどずれるため。
+ */
+type UnderlineData = { shape: 'default' | 'smoothstep' | 'straight' | 'step'; underline: number }
+function UnderlineEdge(props: EdgeProps) {
+  const { sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style, markerEnd } = props
+  const data = props.data as UnderlineData
+  const args = { sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition }
+  const [path] =
+    data.shape === 'straight'
+      ? getStraightPath(args)
+      : data.shape === 'smoothstep' || data.shape === 'step'
+        ? getSmoothStepPath({ ...args, borderRadius: data.shape === 'step' ? 0 : 5 })
+        : getBezierPath(args)
+  return <BaseEdge path={`${path} L ${targetX + data.underline + 1} ${targetY}`} style={style} markerEnd={markerEnd} />
+}
+const edgeTypes = { underline: UnderlineEdge }
 
 const reducedMotion =
   typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
@@ -108,7 +132,8 @@ export default function Canvas() {
           id: `${n.parentId}-${l.id}`,
           source: n.parentId!,
           target: l.id,
-          type: look.edge.shape,
+          type: look.node === 'underline' ? 'underline' : look.edge.shape,
+          data: { shape: look.edge.shape, underline: l.width },
           style: {
             stroke: branchColor(look, theme, byId.get(l.id)!.branch),
             strokeWidth: l.depth === 1 ? look.edge.width1 : look.edge.width2,
@@ -295,6 +320,7 @@ export default function Canvas() {
         nodes={shownNodes}
         edges={shownEdges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         colorMode={theme}
         onNodesChange={onNodesChange}
         onNodeDragStart={onNodeDragStart}

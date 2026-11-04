@@ -561,6 +561,16 @@ test('見た目のテーマ：切り替え・形・再読み込み後も残る',
   await p.click('[data-look-id="note"]')
   eq([(await root()).look, (await root()).shape], ['note', 'underline'], 'ノート')
   eq(await p.locator('.react-flow__background pattern line, .react-flow__background pattern path').count() > 0, true, '背景が罫線')
+  // 下線は線（SVG）の続きとして描かれ、ノードの下の端にぴったり重なる
+  const fit = await p.evaluate(() => {
+    const node = [...document.querySelectorAll('.mind-node')].find((n) => n.textContent.startsWith('要点')).getBoundingClientRect()
+    // 線の終点（＝下線の右端）が、ノードの右下の角にあるか
+    return [...document.querySelectorAll('.react-flow__edge-path')].some((e) => {
+      const pt = e.getPointAtLength(e.getTotalLength()).matrixTransform(e.getScreenCTM())
+      return Math.abs(pt.x - node.right) < 3 && Math.abs(pt.y - node.bottom) < 2
+    })
+  })
+  eq(fit, true, '線と下線がつながっている')
   await p.reload()
   await p.waitForSelector('.mind-node')
   eq((await root()).look, 'note', '再読み込み後も残る')

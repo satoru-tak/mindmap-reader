@@ -18,8 +18,8 @@ export interface Look {
   id: string
   name: string
   description: string
-  /** free = 無料。paid = 有料予定（課金を入れるまでは試せる） */
-  tier: 'free' | 'paid'
+  /** basic = 基本テーマ（無料）。paid = 今後追加する有料テーマ */
+  tier: 'basic' | 'paid'
   /** 枝の色。ライト用とダーク用 */
   branches: { light: string[]; dark: string[] }
   edge: { shape: EdgeShape; width1: number; width2: number }
@@ -37,7 +37,7 @@ export const LOOKS: Look[] = [
     id: 'simple',
     name: 'シンプル',
     description: '標準。落ち着いた色と、角の丸いカード',
-    tier: 'free',
+    tier: 'basic',
     branches: {
       light: ['#5b8def', '#3fa58a', '#d08a3c', '#a873c9', '#d0607a', '#4aa3b5', '#8a9a3c'],
       dark: ['#7ea4f3', '#56bf9f', '#e0a25a', '#bf92dc', '#e07f96', '#66bccd', '#a6b65a'],
@@ -50,7 +50,7 @@ export const LOOKS: Look[] = [
     id: 'soft',
     name: 'やわらか',
     description: 'パステルの色と、丸いノード',
-    tier: 'paid',
+    tier: 'basic',
     branches: {
       light: ['#8fb3f0', '#86cdb5', '#f0b98a', '#c9a6e3', '#eea2b4', '#8fcfdc', '#b9c780'],
       dark: ['#9dbcf2', '#8fd3bc', '#f2c299', '#d0b0e6', '#f0adbd', '#9ad5e0', '#c2cf8c'],
@@ -63,7 +63,7 @@ export const LOOKS: Look[] = [
     id: 'note',
     name: 'ノート',
     description: 'ノートに書いたような下線と、直角の線',
-    tier: 'paid',
+    tier: 'basic',
     branches: {
       light: ['#41618f', '#3d7a69', '#9a6a33', '#755a95', '#9a4f62', '#3f7f8c', '#6b7633'],
       dark: ['#9fb6db', '#8fc5b5', '#d6b07f', '#bba6d6', '#d69aaa', '#93c4cf', '#b6c27f'],
