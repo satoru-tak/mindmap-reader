@@ -895,8 +895,17 @@
 }
 
 /* 下線の形：線は下線の端につなぐ */
+/* つなぐ点を1pxにして、下線の太さのちょうど真ん中に置く（線と下線がぴったり続くように） */
 :root[data-shape='underline'] .mind-node:not(.depth-0) > .mind-handle {
-  top: 100%;
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  top: calc(100% + 1px);
+}
+:root[data-shape='underline'] .mind-node.depth-1 > .mind-handle {
+  top: calc(100% + 1.5px);
 }
 :root[data-shape='underline'] .mind-node:not(.depth-0) > .collapse-btn {
   top: 100%;
