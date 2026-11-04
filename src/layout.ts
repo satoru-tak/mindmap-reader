@@ -119,8 +119,3 @@ export function layoutTree(
   place(rootId, 0, 0, 0, -1)
   return out
 }
-
-/** Calm, low-saturation branch colours (low stimulus by design). */
-export const BRANCH_COLORS = ['#5b8def', '#3fa58a', '#d08a3c', '#a873c9', '#d0607a', '#4aa3b5', '#8a9a3c']
-export const branchColor = (branch: number) =>
-  branch < 0 ? '#3b4250' : BRANCH_COLORS[branch % BRANCH_COLORS.length]

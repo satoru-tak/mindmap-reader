@@ -113,3 +113,41 @@ button {
     animation: none !important;
   }
 }
+
+/* ---------- テーマごとの色の上書き ----------
+ * 「シンプル」は上の基本の色をそのまま使う。
+ * ほかのテーマは、変えたい変数だけここで上書きする（ライト版・ダーク版）。
+ */
+:root[data-look='soft']:not([data-theme='dark']) {
+  --bg: #fbf8f4;
+  --grid: #e6dfd6;
+  --node-border: #e3dcd2;
+  --root-bg: #7d8fb8;
+  --root-drop: #8d9ec4;
+  --root-focus: #c3cff0;
+  --accent: #6f8fe0;
+  --accent-soft: #eef2fc;
+}
+:root[data-look='soft'][data-theme='dark'] {
+  --bg: #1b1a1f;
+  --panel: #232229;
+  --grid: #2e2c35;
+  --node-border: #3a3842;
+  --root-bg: #aab8dc;
+  --root-text: #1b1a1f;
+}
+
+:root[data-look='note']:not([data-theme='dark']) {
+  --bg: #fbfaf5;
+  --grid: #efebe0;
+  --root-bg: #2c3e5c;
+  --root-drop: #3b4f70;
+  --accent: #3e63a8;
+  --accent-soft: #e8eef8;
+}
+:root[data-look='note'][data-theme='dark'] {
+  --bg: #171a1f;
+  --grid: #252a31;
+  --root-bg: #cfd8e8;
+  --root-text: #171a1f;
+}

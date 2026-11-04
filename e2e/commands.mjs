@@ -550,6 +550,25 @@ test('画面の明るさ：ライト / ダーク / 自動', async (p) => {
   eq(await p.evaluate(() => document.documentElement.dataset.theme), 'light', 'ライト')
 })
 
+test('見た目のテーマ：切り替え・形・再読み込み後も残る', async (p) => {
+  const root = () => p.evaluate(() => ({ ...document.documentElement.dataset }))
+  eq((await root()).look, 'simple', '最初はシンプル')
+  const radius = () => p.locator('.mind-node', { hasText: /^要点/ }).evaluate((el) => getComputedStyle(el).borderTopLeftRadius)
+  eq(await radius(), '8px', 'シンプル＝角丸カード')
+  await p.click('[data-look-id="soft"]')
+  eq([(await root()).look, (await root()).shape], ['soft', 'pill'], 'やわらか')
+  eq(await radius(), '20px', '丸いノード')
+  await p.click('[data-look-id="note"]')
+  eq([(await root()).look, (await root()).shape], ['note', 'underline'], 'ノート')
+  eq(await p.locator('.react-flow__background pattern line, .react-flow__background pattern path').count() > 0, true, '背景が罫線')
+  await p.reload()
+  await p.waitForSelector('.mind-node')
+  eq((await root()).look, 'note', '再読み込み後も残る')
+  eq(await p.locator('.look-item.on').getAttribute('data-look-id'), 'note', '一覧でも選択中')
+  await p.click('[data-look-id="simple"]')
+  eq(await radius(), '8px', 'シンプルに戻る')
+})
+
 test('新しいマップ：読書 / シンプル、削除', async (p) => {
   await p.click('text=＋ シンプルマップ')
   await p.keyboard.type('考え')

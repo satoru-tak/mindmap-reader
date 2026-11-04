@@ -3,17 +3,19 @@ import {
   Handle,
   Position,
   Background,
+  BackgroundVariant,
   Controls,
   ReactFlow,
   useNodesState,
   useReactFlow,
+  useUpdateNodeInternals,
   type Edge,
   type OnNodeDrag,
 } from '@xyflow/react'
 import { isDescendant, setLayoutCache, useStore, type DragState, type NodePos } from './store'
-import { branchColor, H_GAP, layoutTree, V_GAP } from './layout'
+import { H_GAP, layoutTree, V_GAP } from './layout'
 import MindNode, { type MindFlowNode } from './MindNode'
-import { useTheme } from './theme'
+import { branchColor, useTheme } from './theme'
 import type { NodeRecord } from './types'
 
 /** Dashed placeholder showing where the dragged node will land. */
@@ -61,7 +63,7 @@ export default function Canvas() {
   const draft = useStore((s) => s.draft)
   const editingId = useStore((s) => s.editingId)
   const drag = useStore((s) => s.drag)
-  const { resolved: theme } = useTheme()
+  const { resolved: theme, look } = useTheme()
   const { fitView, getViewport, setCenter, screenToFlowPosition } = useReactFlow()
   const wrapper = useRef<HTMLDivElement>(null)
 
@@ -89,7 +91,7 @@ export default function Canvas() {
         data: {
           text: n.text,
           depth: l.depth,
-          color: branchColor(l.branch),
+          color: branchColor(look, theme, l.branch),
           childCount: n.children.length,
           collapsed: n.collapsed,
           hiddenCount: n.collapsed ? countDescendants(map.nodes, l.id) : 0,
@@ -106,16 +108,28 @@ export default function Canvas() {
           id: `${n.parentId}-${l.id}`,
           source: n.parentId!,
           target: l.id,
-          type: 'default',
-          style: { stroke: branchColor(byId.get(l.id)!.branch), strokeWidth: l.depth === 1 ? 2.5 : 1.75 },
+          type: look.edge.shape,
+          style: {
+            stroke: branchColor(look, theme, byId.get(l.id)!.branch),
+            strokeWidth: l.depth === 1 ? look.edge.width1 : look.edge.width2,
+          },
         }
       })
     return { flowNodes, edges }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, editingText?.id, editingText?.text])
+  }, [map, editingText?.id, editingText?.text, look, theme])
 
   const [nodes, setNodes, onNodesChange] = useNodesState<MindFlowNode>(flowNodes)
   useEffect(() => setNodes(flowNodes), [flowNodes, setNodes])
+
+  // The node shape (theme) moves the connection points, so re-measure them when it changes.
+  const updateNodeInternals = useUpdateNodeInternals()
+  useEffect(() => {
+    const ids = flowNodes.map((f) => f.id)
+    const t = requestAnimationFrame(() => updateNodeInternals(ids))
+    return () => cancelAnimationFrame(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [look.id, updateNodeInternals])
 
   // While dragging: the old link fades out, and a dashed ghost + link shows where the node will land.
   const { shownEdges, ghost } = useMemo(() => {
@@ -153,12 +167,12 @@ export default function Canvas() {
       id: 'drop-preview',
       source: target.id,
       target: '__ghost',
-      type: 'default',
+      type: look.edge.shape,
       animated: !reducedMotion,
       style: { stroke: ACCENT, strokeWidth: 2.5, strokeDasharray: '6 4' },
     })
     return { shownEdges, ghost }
-  }, [edges, drag, map, flowNodes])
+  }, [edges, drag, map, flowNodes, look])
 
   const shownNodes = useMemo(() => (ghost ? [...nodes, ghost] : nodes), [nodes, ghost])
 
@@ -299,7 +313,13 @@ export default function Canvas() {
         minZoom={0.2}
         maxZoom={2}
       >
-        <Background gap={24} size={1} color="var(--grid)" />
+        <Background
+          key={look.grid}
+          variant={look.grid === 'lines' ? BackgroundVariant.Lines : BackgroundVariant.Dots}
+          gap={look.grid === 'lines' ? 28 : 24}
+          size={1}
+          color="var(--grid)"
+        />
         <Controls showInteractive={false} position="bottom-right" />
       </ReactFlow>
       <DragHint />

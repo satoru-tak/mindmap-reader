@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useStore } from './store'
 import { FileMenu } from './FileActions'
-import { setThemePref, useTheme, type ThemePref } from './theme'
+import { LOOKS, setLook, setThemePref, useTheme, type ThemePref } from './theme'
 
 const fmt = (t: number) =>
   new Date(t).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -51,6 +51,7 @@ export default function Sidebar() {
         ))}
       </ul>
       <FileMenu />
+      <LookPicker />
       <ThemeSwitch />
     </nav>
     </>
@@ -79,6 +80,37 @@ function ThemeSwitch() {
             onClick={() => setThemePref(t.value)}
           >
             {t.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** 見た目のテーマ（配色・線・ノードの形のセット）を選ぶ */
+function LookPicker() {
+  const { look, resolved } = useTheme()
+  return (
+    <div className="theme-switch">
+      <div className="file-menu-title">見た目のテーマ</div>
+      <div className="look-list" role="radiogroup" aria-label="見た目のテーマ">
+        {LOOKS.map((l) => (
+          <button
+            key={l.id}
+            role="radio"
+            aria-checked={look.id === l.id}
+            className={`look-item${look.id === l.id ? ' on' : ''}`}
+            title={l.description}
+            data-look-id={l.id}
+            onClick={() => setLook(l.id)}
+          >
+            <span className="look-swatch" aria-hidden>
+              {l.branches[resolved].slice(0, 4).map((c) => (
+                <i key={c} style={{ background: c }} />
+              ))}
+            </span>
+            <span className="look-name">{l.name}</span>
+            <span className={`look-tag ${l.tier}`}>{l.tier === 'free' ? '無料' : '有料予定'}</span>
           </button>
         ))}
       </div>

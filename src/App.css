@@ -794,3 +794,113 @@
     outline-offset: 3px;
   }
 }
+
+/* ---------- Node shapes (テーマごとのノードの形) ----------
+ * 横の余白＋枠の合計は、どの形でも約30px（layout.ts の PAD_X*2+2）に揃える。
+ */
+:root[data-shape='pill'] .mind-node {
+  border: 1.5px solid color-mix(in srgb, var(--branch) 55%, var(--node-border));
+  border-radius: 20px;
+  padding: 7px 13.5px;
+  background: color-mix(in srgb, var(--branch) 12%, var(--panel));
+}
+:root[data-shape='pill'] .mind-node.depth-0 {
+  background: var(--root-bg);
+  border-color: var(--root-bg);
+  border-radius: 24px;
+}
+:root[data-shape='pill'] .mind-node.quote {
+  background: var(--quote-bg);
+  border-color: var(--quote-border);
+}
+:root[data-shape='pill'] .mind-node.selected {
+  border-color: var(--accent);
+}
+
+:root[data-shape='underline'] .mind-node:not(.depth-0) {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid var(--branch);
+  border-radius: 0;
+  padding: 7px 15px 6px;
+}
+:root[data-shape='underline'] .mind-node.depth-1:not(.depth-0) {
+  border-bottom-width: 3px;
+  padding-bottom: 5px;
+}
+:root[data-shape='underline'] .mind-node.quote:not(.depth-0) {
+  background: var(--quote-bg);
+  border-bottom-color: var(--quote-mark);
+}
+:root[data-shape='underline'] .mind-node.selected:not(.depth-0) {
+  background: var(--accent-soft);
+  border-bottom-color: var(--accent);
+  border-radius: 4px 4px 0 0;
+}
+:root[data-shape='underline'] .mind-node.depth-0 {
+  border-radius: 4px;
+}
+
+/* ---------- Look picker ---------- */
+.look-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 4px 8px;
+}
+.look-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  padding: 6px 8px;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.look-item:hover {
+  background: var(--hover);
+}
+.look-item.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.look-swatch {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.look-swatch i {
+  width: 6px;
+  height: 18px;
+  border-radius: 3px;
+}
+.look-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+}
+.look-tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--chip);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.look-tag.free {
+  background: var(--green-soft);
+  color: var(--green-text);
+}
+
+/* 下線の形：線は下線の端につなぐ */
+:root[data-shape='underline'] .mind-node:not(.depth-0) > .mind-handle {
+  top: 100%;
+}
+:root[data-shape='underline'] .mind-node:not(.depth-0) > .collapse-btn {
+  top: 100%;
+}
+:root[data-look='note']:not([data-theme='dark']) .react-flow__background {
+  opacity: 0.7;
+}
