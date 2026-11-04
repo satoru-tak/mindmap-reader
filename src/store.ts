@@ -155,6 +155,9 @@ interface State {
   setSidebarOpen: (open: boolean) => void
   /** an item to highlight briefly (e.g. a chapter just added), so it's easy to find */
   flashId: string | null
+  /** 折りたたみ・展開したノード。画面上で同じ位置に留める（Canvas が使ったら null に戻す） */
+  pinId: string | null
+  clearPin: () => void
   /** add imported maps (always as new maps) and open the first one */
   importMaps: (maps: MindMap[]) => void
   toast: { id: number; text: string; kind: 'info' | 'error' } | null
@@ -261,6 +264,8 @@ export const useStore = create<State>((set, get) => {
     sidebarOpen: false,
     setSidebarOpen: (open) => set({ sidebarOpen: open }),
     flashId: null,
+    pinId: null,
+    clearPin: () => set({ pinId: null }),
     lastAddedId: null,
     lastAddedFrom: null,
     lastAddedKind: null,
@@ -518,6 +523,9 @@ export const useStore = create<State>((set, get) => {
       if (!target || !map || !map.nodes[target]?.children.length) return
       mutate((nodes) => {
         nodes[target].collapsed = !nodes[target].collapsed
+        // 折りたたんだノードを選び、画面上の位置を保つ。
+        // （選んでいたノードが隠れた場合も、折りたたんだノードに選択が移る）
+        return { selectedId: target, pinId: target }
       })
     },
 

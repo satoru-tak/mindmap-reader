@@ -345,6 +345,41 @@ test('/：たたむ・ひらく、→ でもひらく', async (p) => {
   eq((await h.node(p, '第1章')).collapsed, false, '→ でひらく')
 })
 
+test('ボタンでたたむ：そのノードが選ばれ、画面上の位置が変わらない（タイトルに飛ばない）', async (p) => {
+  await click(p, '要点')
+  await p.keyboard.press('Tab')
+  await p.keyboard.type('A')
+  await p.keyboard.press('Enter')
+  await p.keyboard.press('Escape')
+  await click(p, '本のタイトル')
+  // 画面をずらして、タイトルを左端に寄せる
+  await p.mouse.move(900, 600)
+  await p.mouse.down()
+  await p.mouse.move(620, 600, { steps: 8 })
+  await p.mouse.up()
+  await pause(p, 300)
+  const box = () => p.locator('.mind-node', { hasText: /^要点/ }).first().boundingBox()
+  const before = await box()
+  await p.locator('.mind-node', { hasText: /^要点/ }).first().locator('.collapse-btn').click()
+  await pause(p, 600)
+  eq((await h.node(p, '要点')).collapsed, true, 'たたまれる')
+  eq(await h.selected(p), '要点', 'たたんだノードが選ばれる')
+  const after = await box()
+  eq([Math.round(after.x - before.x), Math.round(after.y - before.y)], [0, 0], '画面上の位置が変わらない')
+  await p.locator('.mind-node', { hasText: /^要点/ }).first().locator('.collapse-btn').click()
+  await pause(p, 600)
+  const again = await box()
+  eq([Math.round(again.x - before.x), Math.round(again.y - before.y)], [0, 0], 'ひらいても位置が変わらない')
+})
+
+test('たたむと、中にあった選択はたたんだノードへ移る', async (p) => {
+  await click(p, '第1章')
+  await p.keyboard.press('ArrowRight')
+  eq(await h.selected(p), '要点', '要点を選択')
+  await p.locator('.mind-node', { hasText: /^第1章/ }).first().locator('.collapse-btn').click()
+  eq(await h.selected(p), '第1章', '第1章へ移る')
+})
+
 testMod('⌘/Ctrl+/：たたむ・ひらく', async (p, mod) => {
   await click(p, '第1章')
   await p.keyboard.press(`${mod}+/`)
@@ -603,7 +638,7 @@ test('C：追加した章が少しの間ハイライトされる', async (p) => 
 
 test('狭い画面：☰ でマップ一覧を開き、選ぶと閉じる / 操作方法も見られる', async (p) => {
   await p.setViewportSize({ width: 600, height: 800 })
-  await pause(p, 200)
+  await pause(p, 500) // サイドバーが閉じるアニメーションを待つ
   eq(await p.locator('.menu-btn').isVisible(), true, '☰ が出る')
   const left = () => p.locator('.sidebar').evaluate((el) => Math.round(el.getBoundingClientRect().right))
   eq((await left()) <= 0, true, '最初は隠れている')

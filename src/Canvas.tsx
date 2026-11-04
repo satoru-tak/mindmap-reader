@@ -88,7 +88,7 @@ export default function Canvas() {
   const editingId = useStore((s) => s.editingId)
   const drag = useStore((s) => s.drag)
   const { resolved: theme, look } = useTheme()
-  const { fitView, getViewport, setCenter, screenToFlowPosition } = useReactFlow()
+  const { fitView, getViewport, setViewport, setCenter, screenToFlowPosition } = useReactFlow()
   const wrapper = useRef<HTMLDivElement>(null)
 
   // While editing, lay out with the live text so the node grows sideways and neighbours make room.
@@ -145,7 +145,23 @@ export default function Canvas() {
   }, [map, editingText?.id, editingText?.text, look, theme])
 
   const [nodes, setNodes, onNodesChange] = useNodesState<MindFlowNode>(flowNodes)
-  useEffect(() => setNodes(flowNodes), [flowNodes, setNodes])
+  // 折りたたみ・展開で形が変わっても、そのノードは画面上の同じ位置に留める
+  const prevPos = useRef(new Map<string, { x: number; y: number }>())
+  const pinId = useStore((s) => s.pinId)
+  useEffect(() => {
+    if (pinId) {
+      const before = prevPos.current.get(pinId)
+      const after = flowNodes.find((f) => f.id === pinId)?.position
+      if (before && after && (before.x !== after.x || before.y !== after.y)) {
+        const { x, y, zoom } = getViewport()
+        setViewport({ x: x - (after.x - before.x) * zoom, y: y - (after.y - before.y) * zoom, zoom })
+      }
+      useStore.getState().clearPin()
+    }
+    prevPos.current = new Map(flowNodes.map((f) => [f.id, f.position]))
+    setNodes(flowNodes)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flowNodes, setNodes])
 
   // The node shape (theme) moves the connection points, so re-measure them when it changes.
   const updateNodeInternals = useUpdateNodeInternals()
