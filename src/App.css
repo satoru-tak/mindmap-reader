@@ -623,6 +623,8 @@
 .mind-node.quote {
   background: var(--quote-bg);
   border-color: var(--quote-border);
+  /* 左の帯は、ほかのノードと同じく枝の色（つながる線と色をそろえる） */
+  border-left-color: var(--branch);
 }
 .quote-mark {
   width: 12px;
@@ -812,6 +814,8 @@
 :root[data-shape='pill'] .mind-node.quote {
   background: var(--quote-bg);
   border-color: var(--quote-border);
+  /* 左の帯は、ほかのノードと同じく枝の色（つながる線と色をそろえる） */
+  border-left-color: var(--branch);
 }
 :root[data-shape='pill'] .mind-node.selected {
   border-color: var(--accent);
@@ -824,15 +828,16 @@
   border-radius: 4px 4px 0 0;
   padding: 7px 15px 8px;
 }
+/* 背景は下線の少し上で止め、下線（太さ2px）にかぶらないようにする */
 :root[data-shape='underline'] .mind-node.quote:not(.depth-0) {
-  background: var(--quote-bg);
+  background: linear-gradient(var(--quote-bg), var(--quote-bg)) top / 100% calc(100% - 2px) no-repeat;
 }
 :root[data-shape='underline'] .mind-node.selected:not(.depth-0) {
-  background: var(--accent-soft);
+  background: linear-gradient(var(--accent-soft), var(--accent-soft)) top / 100% calc(100% - 2px) no-repeat;
   box-shadow: none;
 }
 :root[data-shape='underline'] .mind-node.drop-target:not(.depth-0) {
-  background: var(--accent-soft);
+  background: linear-gradient(var(--accent-soft), var(--accent-soft)) top / 100% calc(100% - 2px) no-repeat;
 }
 :root[data-shape='underline'] .mind-node.depth-0 {
   border-radius: 4px;
