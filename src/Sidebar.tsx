@@ -50,9 +50,7 @@ export default function Sidebar() {
           </li>
         ))}
       </ul>
-      <FileMenu />
-      <LookPicker />
-      <ThemeSwitch />
+      <Settings />
     </nav>
     </>
   )
@@ -113,6 +111,54 @@ function LookPicker() {
             {l.tier === 'paid' && <span className="look-tag">有料</span>}
           </button>
         ))}
+      </div>
+    </div>
+  )
+}
+
+const SETTINGS_KEY = 'mindmap-reader:settings-open'
+function readOpen() {
+  try {
+    return localStorage.getItem(SETTINGS_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * ファイル・テーマ・明るさを「⚙ 設定」1つにまとめる。ふだんは閉じておき、マップ一覧を広く使う。
+ * 閉じていても中身は消さない（⌘O などのキー操作がファイル選択を使うため）。
+ */
+function Settings() {
+  const [open, setOpen] = useState(readOpen)
+  const toggle = () => {
+    setOpen((o) => {
+      try {
+        localStorage.setItem(SETTINGS_KEY, o ? '0' : '1')
+      } catch {
+        /* ignore */
+      }
+      return !o
+    })
+  }
+  return (
+    <div className="settings">
+      <button className="settings-toggle" aria-expanded={open} aria-controls="settings-body" onClick={toggle}>
+        <span className="settings-icon" aria-hidden>
+          ⚙
+        </span>
+        <span className="settings-label">
+          設定
+          <span className="settings-sub">ファイル・テーマ・明るさ</span>
+        </span>
+        <span className="settings-chev" aria-hidden>
+          {open ? '▾' : '▸'}
+        </span>
+      </button>
+      <div id="settings-body" className="settings-body" hidden={!open}>
+        <FileMenu />
+        <LookPicker />
+        <ThemeSwitch />
       </div>
     </div>
   )

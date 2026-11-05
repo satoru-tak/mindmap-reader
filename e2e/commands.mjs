@@ -68,6 +68,10 @@ const h = {
 }
 const click = (p, text) => p.locator('.mind-node', { hasText: new RegExp(`^${text}`) }).first().click()
 const pause = (p, ms = 120) => p.waitForTimeout(ms)
+/** サイドバーの「⚙ 設定」を開く（ファイル・テーマ・明るさ） */
+const openSettings = async (p) => {
+  if ((await p.locator('.settings-toggle').getAttribute('aria-expanded')) !== 'true') await p.click('.settings-toggle')
+}
 
 // ---------- tiny assertion lib ----------
 class Fail extends Error {}
@@ -530,6 +534,7 @@ testMod('⌘/Ctrl+S：自動保存の案内（ブラウザの保存画面は出�
 })
 
 test('サイドバー：すべてバックアップ', async (p) => {
+  await openSettings(p)
   const [dl] = await Promise.all([p.waitForEvent('download'), p.click('text=すべてバックアップ')])
   eq(dl.suggestedFilename().startsWith('mindmap-backup-'), true, 'ファイル名')
 })
@@ -579,6 +584,7 @@ test('モード切り替え：読書 ⇄ シンプル（データは残る）', 
 })
 
 test('画面の明るさ：ライト / ダーク / 自動', async (p) => {
+  await openSettings(p)
   await p.click('.theme-seg >> text=ダーク')
   eq(await p.evaluate(() => document.documentElement.dataset.theme), 'dark', 'ダーク')
   await p.click('.theme-seg >> text=ライト')
@@ -590,6 +596,7 @@ test('見た目のテーマ：切り替え・形・再読み込み後も残る',
   eq((await root()).look, 'simple', '最初はシンプル')
   const radius = () => p.locator('.mind-node', { hasText: /^要点/ }).evaluate((el) => getComputedStyle(el).borderTopLeftRadius)
   eq(await radius(), '8px', 'シンプル＝角丸カード')
+  await openSettings(p)
   await p.click('[data-look-id="soft"]')
   eq([(await root()).look, (await root()).shape], ['soft', 'pill'], 'やわらか')
   eq(await radius(), '20px', '丸いノード')
@@ -611,9 +618,41 @@ test('見た目のテーマ：切り替え・形・再読み込み後も残る',
   await p.reload()
   await p.waitForSelector('.mind-node')
   eq((await root()).look, 'note', '再読み込み後も残る')
+  eq(await p.locator('.settings-toggle').getAttribute('aria-expanded'), 'true', '設定を開いたままにしたことも残る')
   eq(await p.locator('.look-item.on').getAttribute('data-look-id'), 'note', '一覧でも選択中')
   await p.click('[data-look-id="simple"]')
   eq(await radius(), '8px', 'シンプルに戻る')
+})
+
+test('⚙ 設定：最初は閉じていて、開くとファイル・テーマ・明るさが出る', async (p) => {
+  eq(await p.locator('.settings-toggle').getAttribute('aria-expanded'), 'false', '最初は閉じている')
+  eq(await p.locator('.theme-seg').isVisible(), false, '明るさは隠れている')
+  eq(await p.locator('text=すべてバックアップ').isVisible(), false, 'ファイルも隠れている')
+  await p.click('.settings-toggle')
+  eq(await p.locator('.theme-seg').isVisible(), true, '明るさが出る')
+  eq(await p.locator('[data-look-id="note"]').isVisible(), true, 'テーマが出る')
+  eq(await p.locator('text=すべてバックアップ').isVisible(), true, 'ファイルが出る')
+  await p.click('.settings-toggle')
+  eq(await p.locator('.theme-seg').isVisible(), false, 'もう一度押すと閉じる')
+})
+
+test('⚙ 設定を閉じると、マップ一覧を広く使える（高さ720pxでマップ8個以上）', async (p) => {
+  await p.setViewportSize({ width: 1280, height: 720 })
+  for (let i = 1; i <= 14; i++) {
+    await p.click('text=＋ シンプルマップ')
+    await p.keyboard.type('マップ' + i)
+    await p.keyboard.press('Enter')
+    await p.keyboard.press('Escape')
+  }
+  await pause(p, 300)
+  const shown = await p.evaluate(() => {
+    const l = document.querySelector('.map-list')
+    const item = l.querySelector('li')
+    return Math.floor(l.clientHeight / (item.getBoundingClientRect().height + 2))
+  })
+  eq(shown >= 8, true, `一覧に見えている数：${shown}`)
+  const sb = await p.evaluate(() => { const s = document.querySelector('.sidebar'); return s.scrollHeight <= s.clientHeight })
+  eq(sb, true, 'サイドバーからはみ出さない')
 })
 
 test('新しいマップ：読書 / シンプル、削除', async (p) => {
