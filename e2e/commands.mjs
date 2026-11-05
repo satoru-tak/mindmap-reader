@@ -662,7 +662,15 @@ test('長いタイトル：一覧では1行で右端を薄くして消し、マ�
   await p.keyboard.press('Enter')
   await p.keyboard.press('Escape')
   const row = p.locator('.map-list li.active .map-item')
-  eq(await row.getAttribute('title'), long, 'マウスを乗せたときの全文')
+  await row.hover()
+  await pause(p, 500)
+  eq(await p.locator('.map-tip').textContent(), long, 'マウスを乗せると0.3秒ほどで全文が出る')
+  await p.mouse.move(900, 400)
+  await pause(p, 100)
+  eq(await p.locator('.map-tip').count(), 0, '離れると消える')
+  await p.locator('.map-list li', { hasText: '本のタイトル' }).hover()
+  await pause(p, 500)
+  eq(await p.locator('.map-tip').count(), 0, '切れていないタイトルには出さない')
   const t = await row.locator('.map-title-text').evaluate((el) => ({
     lines: Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight || '20')),
     cut: el.scrollWidth > el.clientWidth,

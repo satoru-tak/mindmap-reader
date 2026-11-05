@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useStore } from './store'
 import { FileMenu } from './FileActions'
 import { LOOKS, setLook, setThemePref, useTheme, type ThemePref } from './theme'
@@ -13,6 +14,7 @@ export default function Sidebar() {
   const { createMap, selectMap, deleteMap, setSidebarOpen } = useStore.getState()
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const list = Object.values(maps).sort((a, b) => b.updatedAt - a.updatedAt)
+  const tip = useTitleTip()
 
   return (
     <>
@@ -27,8 +29,13 @@ export default function Sidebar() {
       </div>
       <ul className="map-list">
         {list.map((m) => (
-          <li key={m.id} className={m.id === currentMapId ? 'active' : ''}>
-            <button className="map-item" onClick={() => selectMap(m.id)} title={m.title || '無題'}>
+          <li
+            key={m.id}
+            className={m.id === currentMapId ? 'active' : ''}
+            onMouseEnter={(e) => tip.show(e.currentTarget, m.title || '無題')}
+            onMouseLeave={tip.hide}
+          >
+            <button className="map-item" onClick={() => (tip.hide(), selectMap(m.id))} aria-label={m.title || '無題'}>
               <span className="map-title">
                 <span className={`dot ${m.mode}`} />
                 <span className="map-title-text">{m.title || '無題'}</span>
@@ -50,6 +57,7 @@ export default function Sidebar() {
           </li>
         ))}
       </ul>
+      {tip.node}
       <Settings />
     </nav>
     </>
@@ -162,4 +170,36 @@ function Settings() {
       </div>
     </div>
   )
+}
+
+/**
+ * 一覧で切れている長いタイトルの全文を、少しだけ待ってから吹き出しで出す。
+ * ブラウザ標準の吹き出し（title）は出るまで約1秒かかり、待ち時間も変えられないため自作。
+ */
+const TIP_DELAY = 300
+function useTitleTip() {
+  const [tip, setTip] = useState<{ text: string; top: number; left: number } | null>(null)
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const hide = () => {
+    clearTimeout(timer.current)
+    setTip(null)
+  }
+  const show = (row: HTMLElement, text: string) => {
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => {
+      const el = row.querySelector<HTMLElement>('.map-title-text')
+      if (!el || el.scrollWidth <= el.clientWidth) return // 切れていなければ出さない
+      const r = row.getBoundingClientRect()
+      setTip({ text, top: r.top + r.height / 2, left: r.right + 8 })
+    }, TIP_DELAY)
+  }
+  const node = tip
+    ? createPortal(
+        <div className="map-tip" role="tooltip" style={{ top: tip.top, left: tip.left }}>
+          {tip.text}
+        </div>,
+        document.body,
+      )
+    : null
+  return { show, hide, node }
 }
