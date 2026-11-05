@@ -77,12 +77,19 @@
 }
 .map-title {
   font-size: 14px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+}
+/* 長いタイトルは1行のまま、右端を薄くして消す（全文はマウスを乗せると出る） */
+.map-title-text {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
 }
 .map-date {
   font-size: 11px;
@@ -99,16 +106,35 @@
 .dot.reading {
   background: var(--green);
 }
+/* × はタイトルの上に重ねて置き、マウスを乗せたときだけ出す（ふだんはタイトルを端まで使う） */
+.map-list li {
+  position: relative;
+}
 .map-delete {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
   border: 0;
+  border-radius: 6px;
   background: none;
   color: var(--muted);
   padding: 4px 8px;
   opacity: 0;
 }
+.map-delete:hover {
+  background: var(--chip);
+  color: var(--text);
+}
 .map-list li:hover .map-delete,
 .map-delete:focus-visible {
   opacity: 1;
+}
+/* × が出ているあいだは、タイトルの薄くなり始めを手前にずらして重ならないようにする */
+.map-list li:hover .map-title-text,
+.map-list li:focus-within .map-title-text {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 56px), transparent calc(100% - 28px));
+  mask-image: linear-gradient(to right, #000 calc(100% - 56px), transparent calc(100% - 28px));
 }
 .confirm {
   display: flex;

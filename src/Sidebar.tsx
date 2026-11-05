@@ -28,10 +28,10 @@ export default function Sidebar() {
       <ul className="map-list">
         {list.map((m) => (
           <li key={m.id} className={m.id === currentMapId ? 'active' : ''}>
-            <button className="map-item" onClick={() => selectMap(m.id)}>
+            <button className="map-item" onClick={() => selectMap(m.id)} title={m.title || '無題'}>
               <span className="map-title">
                 <span className={`dot ${m.mode}`} />
-                {m.title || '無題'}
+                <span className="map-title-text">{m.title || '無題'}</span>
               </span>
               <span className="map-date">{fmt(m.updatedAt)}</span>
             </button>

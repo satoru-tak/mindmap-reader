@@ -655,6 +655,25 @@ test('⚙ 設定を閉じると、マップ一覧を広く使える（高さ720p
   eq(sb, true, 'サイドバーからはみ出さない')
 })
 
+test('長いタイトル：一覧では1行で右端を薄くして消し、マウスを乗せると全文が出る', async (p) => {
+  const long = 'とても長いタイトルの本を読んだときのまとめ・第二版・増補改訂'
+  await p.click('text=＋ シンプルマップ')
+  await p.keyboard.type(long)
+  await p.keyboard.press('Enter')
+  await p.keyboard.press('Escape')
+  const row = p.locator('.map-list li.active .map-item')
+  eq(await row.getAttribute('title'), long, 'マウスを乗せたときの全文')
+  const t = await row.locator('.map-title-text').evaluate((el) => ({
+    lines: Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight || '20')),
+    cut: el.scrollWidth > el.clientWidth,
+    fade: getComputedStyle(el).maskImage || getComputedStyle(el).webkitMaskImage,
+  }))
+  eq(t.cut, true, '1行に収まらない分は切れる')
+  eq(/gradient/.test(t.fade), true, '右端を薄くしている')
+  const sb = await p.evaluate(() => { const s = document.querySelector('.sidebar'); return s.scrollWidth <= s.clientWidth })
+  eq(sb, true, 'サイドバーが横にはみ出さない')
+})
+
 test('新しいマップ：読書 / シンプル、削除', async (p) => {
   await p.click('text=＋ シンプルマップ')
   await p.keyboard.type('考え')
