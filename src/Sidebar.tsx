@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore } from './store'
-import { FileMenu } from './FileActions'
+import { exportAll, FileMenu } from './FileActions'
+import { BackupReminder } from './Panels'
 import { LOOKS, setLook, setThemePref, useTheme, type ThemePref } from './theme'
 
 const fmt = (t: number) =>
@@ -58,6 +59,7 @@ export default function Sidebar() {
         ))}
       </ul>
       {tip.node}
+      <BackupReminder onBackup={exportAll} />
       <Settings />
     </nav>
     </>

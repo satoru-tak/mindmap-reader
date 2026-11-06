@@ -5,6 +5,7 @@ export interface Clip {
   text: string
   page?: string
   kind?: NodeKind
+  note?: string
   collapsed?: boolean
   children: Clip[]
 }
@@ -14,6 +15,7 @@ export function toClip(nodes: NodeRecord, id: string): Clip {
   const c: Clip = { text: n.text, children: n.children.map((k) => toClip(nodes, k)) }
   if (n.page) c.page = n.page
   if (n.kind) c.kind = n.kind
+  if (n.note) c.note = n.note
   if (n.collapsed) c.collapsed = true
   return c
 }
@@ -27,7 +29,9 @@ export function toOutline(clip: Clip, depth = 0): string {
   if (clip.kind === 'quote') label = `“${label}”`
   if (clip.page) label += `（p.${clip.page}）`
   const line = `${'  '.repeat(depth)}- ${label}`
-  return [line, ...clip.children.map((c) => toOutline(c, depth + 1))].join('\n')
+  // メモは「> 」で始まる行として、項目のすぐ下に書く（読み込むと元のメモに戻る）
+  const note = clip.note ? clip.note.split('\n').map((l) => `${'  '.repeat(depth + 1)}> ${l}`) : []
+  return [line, ...note, ...clip.children.map((c) => toOutline(c, depth + 1))].join('\n')
 }
 
 /**
@@ -51,6 +55,13 @@ export function parseOutline(text: string): Clip[] {
       body = body.slice(heading[0].length)
     } else if (headingIndent >= 0) {
       indent += headingIndent + 500
+    }
+    // 「> 」で始まる行は、すぐ上の項目のメモ
+    const quoteLine = body.match(/^>\s?(.*)$/)
+    if (quoteLine) {
+      const owner = stack[stack.length - 1]?.clip
+      if (owner) owner.note = owner.note ? `${owner.note}\n${quoteLine[1]}` : quoteLine[1]
+      continue
     }
     body = body.replace(/^([-*+•・]|\d+[.)])\s+/, '').trim()
     if (!body) continue

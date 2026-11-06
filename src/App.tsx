@@ -67,6 +67,7 @@ function useKeyboard() {
             e.shiftKey ? exportCurrent() : s.showToast(`保存は自動で行われています。ファイルに書き出すには ${MOD}+Shift+S`),
           )
         if (key === 'o') return run(openFilePicker)
+        if (key === 'f') return run(s.openSearch)
         if (key === 'Home') return run(s.goHome)
         if (!s.selectedId) return
         if (key === 'd') return run(() => s.duplicateNode())
@@ -96,6 +97,7 @@ function useKeyboard() {
       }
 
       if (key === 'Home' || key === 'h') return run(s.goHome)
+      if (key === 'Escape' && s.focusId) return run(s.toggleFocus)
       const reading = s.maps[s.currentMapId!]?.mode === 'reading'
       if (key === 'c' && reading) return run(s.addChapter)
       if (!s.selectedId) {
@@ -124,6 +126,8 @@ function useKeyboard() {
         Backspace: () => s.deleteNode(),
         '/': () => s.toggleCollapse(),
         q: () => reading && s.toggleQuote(),
+        m: () => s.setMemoOpen(true),
+        f: () => s.toggleFocus(),
         p: () => reading && focusPageInput(),
         ArrowLeft: () => s.navigate('left', nav),
         ArrowRight: () => s.navigate('right', nav),
@@ -182,6 +186,8 @@ function Toolbar() {
   const isRootSel = useStore((s) => !!s.currentMapId && s.maps[s.currentMapId]?.rootId === s.selectedId)
   const canUndo = useStore((s) => s.past.length > 0)
   const canRedo = useStore((s) => s.future.length > 0)
+  const memoOpen = useStore((s) => s.memoOpen)
+  const focusOn = useStore((s) => !!s.focusId)
   const s = useStore.getState()
 
   return (
@@ -227,12 +233,27 @@ function Toolbar() {
         <button disabled={!hasSel || isRootSel} onClick={() => s.deleteNode()} title="削除 (Delete)">
           削除
         </button>
+        <button disabled={!hasSel} onClick={() => s.setMemoOpen(!memoOpen)} className={memoOpen ? 'on' : ''} title="選んだ項目のメモ (M)">
+          メモ
+        </button>
         <span className="sep" />
         <button disabled={!canUndo} onClick={s.undo} title={`元に戻す (${MOD}+Z)`}>
           ↶
         </button>
         <button disabled={!canRedo} onClick={s.redo} title={`やり直す (${MOD}+Shift+Z)`}>
           ↷
+        </button>
+        <span className="sep" />
+        <button
+          disabled={!focusOn && (!hasSel || isRootSel)}
+          onClick={s.toggleFocus}
+          className={focusOn ? 'on' : ''}
+          title="選んだ枝だけを表示して、ほかを薄くする (F)"
+        >
+          集中
+        </button>
+        <button onClick={s.openSearch} title={`マップ内を検索 (${MOD}+F)`}>
+          検索
         </button>
         <span className="sep" />
         <button onClick={s.goHome} title="中心に戻る (H)">
@@ -385,6 +406,8 @@ function Help() {
           <dd>Enter を押し間違えたら：今追加した空の項目を「詳しく」に変更（Shift+Tab で逆）</dd>
           <dt>Delete</dt>
           <dd>削除</dd>
+          <dt>M</dt>
+          <dd>選んだ項目のメモを開く（メモがある項目には ≡ の印）</dd>
         </dl>
         <h3>選択の移動</h3>
         <dl>
@@ -402,6 +425,10 @@ function Help() {
           <dd>並びの先頭 ／ 末尾へ</dd>
           <dt>H / Home</dt>
           <dd>中心（タイトル）に戻る</dd>
+          <dt>{MOD}+F</dt>
+          <dd>マップ内を検索（メモも）。Enter で次、Shift+Enter で前</dd>
+          <dt>F</dt>
+          <dd>集中モード：選んだ枝だけを表示して、ほかを薄くする（もう一度 F か Esc で解除）</dd>
         </dl>
         <h3>並べ替え・整理</h3>
         <dl>

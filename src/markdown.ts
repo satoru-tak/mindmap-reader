@@ -23,14 +23,20 @@ const label = (n: MindNodeData) => {
 export function toMarkdown(map: MindMap): string {
   const { nodes, rootId } = map
   const out: string[] = [`# ${label(nodes[rootId]) === '（空）' ? '無題' : nodes[rootId].text.replace(/\s*\n\s*/g, ' ')}`]
+  /** メモは「> 」の行で書く（MindNode などでは引用として表示され、読み込むとメモに戻る） */
+  const note = (n: MindNodeData, indent: string) =>
+    n.note ? n.note.split('\n').map((l) => `${indent}> ${l}`) : []
   const list = (id: string, depth: number) => {
     for (const k of nodes[id].children) {
       out.push(`${'  '.repeat(depth)}- ${label(nodes[k])}`)
+      out.push(...note(nodes[k], '  '.repeat(depth + 1)))
       list(k, depth + 1)
     }
   }
+  if (nodes[rootId].note) out.push('', ...note(nodes[rootId], ''))
   for (const k of nodes[rootId].children) {
     out.push('', `## ${label(nodes[k])}`)
+    if (nodes[k].note) out.push('', ...note(nodes[k], ''))
     if (nodes[k].children.length) out.push('')
     list(k, 0)
   }
@@ -48,6 +54,7 @@ function restoreReading(c: Clip): Clip {
   }
   const quoted = /^[“"「].*[”"」]$/.test(text) && text.length >= 2
   const out: Clip = { text: quoted ? text.slice(1, -1).trim() : text, children: c.children.map(restoreReading) }
+  if (c.note) out.note = c.note
   if (quoted) out.kind = 'quote'
   if (page) out.page = page
   return out
@@ -74,6 +81,7 @@ export function parseMarkdownMap(text: string, fileTitle: string): MindMap | nul
     const n: MindNodeData = { id, parentId, text: c.text, children: [], collapsed: false }
     if (parentId && c.kind === 'quote') n.kind = 'quote'
     if (parentId && c.page) n.page = c.page
+    if (c.note) n.note = c.note
     if (n.kind || n.page) reading = true
     nodes[id] = n
     n.children = c.children.map((k) => add(k, id))

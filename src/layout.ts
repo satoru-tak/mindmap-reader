@@ -29,6 +29,8 @@ function measureLine(text: string, size: number, weight: number) {
 /** Estimate the rendered size of a node so the tree can be laid out before React renders it. */
 export const QUOTE_EXTRA = 18 // room for the “ mark of a quote
 export const PAGE_FONT = 11
+/** room for the memo mark */
+export const NOTE_EXTRA = 26
 
 /** extra width taken by reading-mode decorations (quote mark, page badge) */
 export function readingExtra(page: string | undefined, quote: boolean) {
@@ -113,7 +115,7 @@ export function layoutTree(nodes: NodeRecord, rootId: string, opts: LayoutOption
 
   const measure = (id: string, depth: number): number => {
     const n = nodes[id]
-    const extra = showReading && depth > 0 ? readingExtra(n.page, n.kind === 'quote') : 0
+    const extra = (showReading && depth > 0 ? readingExtra(n.page, n.kind === 'quote') : 0) + (n.note ? NOTE_EXTRA : 0)
     const size =
       editing && editing.id === id
         ? measureNode(editing.text, depth, EDIT_MAX_WIDTH, true, extra)

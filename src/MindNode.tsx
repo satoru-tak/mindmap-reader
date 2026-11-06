@@ -15,6 +15,10 @@ export type MindFlowNode = Node<
     quote?: boolean
     /** 1 = タイトルの右側、-1 = 左側 */
     dir?: 1 | -1
+    /** メモがある */
+    note?: boolean
+    /** 集中モードで、集中している枝の外 */
+    dimmed?: boolean
   },
   'mind'
 >
@@ -23,6 +27,7 @@ function MindNodeView({ id, data, width, height }: NodeProps<MindFlowNode>) {
   const selected = useStore((s) => s.selectedId === id)
   const editing = useStore((s) => s.editingId === id)
   const flashing = useStore((s) => s.flashId === id)
+  const hit = useStore((s) => (s.search.open && s.search.hits.includes(id) ? (s.search.hits[s.search.index] === id ? 'hit-current' : 'hit') : ''))
   const dropState = useStore((s) =>
     s.drag?.targetId === id ? (s.drag.blocked ? 'drop-blocked' : 'drop-target') : '',
   )
@@ -32,7 +37,7 @@ function MindNodeView({ id, data, width, height }: NodeProps<MindFlowNode>) {
 
   return (
     <div
-      className={`mind-node depth-${Math.min(data.depth, 2)}${selected ? ' selected' : ''}${editing ? ' editing' : ''}${data.quote ? ' quote' : ''}${flashing ? ' flash' : ''}${data.dir === -1 ? ' side-left' : ''} ${dropState}`}
+      className={`mind-node depth-${Math.min(data.depth, 2)}${selected ? ' selected' : ''}${editing ? ' editing' : ''}${data.quote ? ' quote' : ''}${flashing ? ' flash' : ''}${data.dir === -1 ? ' side-left' : ''}${data.dimmed ? ' dimmed' : ''} ${hit} ${dropState}`}
       style={
         {
           width,
@@ -75,6 +80,20 @@ function MindNodeView({ id, data, width, height }: NodeProps<MindFlowNode>) {
         </div>
       )}
       {data.page && <span className="page-badge">p.{data.page}</span>}
+      {data.note && (
+        <button
+          className="note-mark nodrag"
+          title="メモあり（M で開く）"
+          aria-label="メモを開く"
+          onClick={(e) => {
+            e.stopPropagation()
+            select(id)
+            useStore.getState().setMemoOpen(true)
+          }}
+        >
+          ≡
+        </button>
+      )}
       </div>
       {data.childCount > 0 && (
         <button

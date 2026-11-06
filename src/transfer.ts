@@ -71,6 +71,7 @@ function sanitizeMap(raw: unknown): MindMap | null {
     }
     if (typeof n.page === 'string' && n.page) node.page = n.page
     if (n.kind === 'quote') node.kind = 'quote'
+    if (typeof n.note === 'string' && n.note.trim()) node.note = n.note
     if (parentId === raw.rootId && (n.side === 'left' || n.side === 'right')) node.side = n.side
     nodes[id] = node
     const kids = Array.isArray(n.children) ? n.children : []

@@ -21,6 +21,7 @@ import { isDescendant, layoutOf, setLayoutCache, useStore, type DragState, type 
 import { H_GAP, layoutTree, V_GAP } from './layout'
 import MindNode, { type MindFlowNode } from './MindNode'
 import SidePicker from './SidePicker'
+import { FocusBanner, MemoPanel, SearchBar } from './Panels'
 import { branchColor, useTheme } from './theme'
 import type { NodeRecord } from './types'
 
@@ -90,6 +91,7 @@ export default function Canvas() {
   const editingId = useStore((s) => s.editingId)
   const drag = useStore((s) => s.drag)
   const { resolved: theme, look } = useTheme()
+  const focusId = useStore((s) => s.focusId)
   const { fitView, getViewport, setViewport, setCenter, screenToFlowPosition } = useReactFlow()
   const wrapper = useRef<HTMLDivElement>(null)
 
@@ -110,6 +112,21 @@ export default function Canvas() {
     for (const l of laid) cache.set(l.id, { x: l.x, y: l.y, height: l.height, depth: l.depth, dir: l.dir })
     setLayoutCache(cache)
     const byId = new Map(laid.map((l) => [l.id, l]))
+    // 集中モード：その枝と、タイトルまでの道だけをはっきり見せる
+    let focusSet: Set<string> | null = null
+    if (focusId && map.nodes[focusId]) {
+      focusSet = new Set<string>()
+      const add = (id: string) => {
+        focusSet!.add(id)
+        map.nodes[id].children.forEach(add)
+      }
+      add(focusId)
+      let cur = map.nodes[focusId].parentId
+      while (cur) {
+        focusSet.add(cur)
+        cur = map.nodes[cur].parentId
+      }
+    }
     const flowNodes: MindFlowNode[] = laid.map((l) => {
       const n = map.nodes[l.id]
       return {
@@ -129,6 +146,8 @@ export default function Canvas() {
           page: showReading && l.depth > 0 ? n.page : undefined,
           quote: showReading && l.depth > 0 && n.kind === 'quote',
           dir: l.dir,
+          note: !!n.note,
+          dimmed: focusSet ? !focusSet.has(l.id) : false,
         },
       }
     })
@@ -148,12 +167,13 @@ export default function Canvas() {
           style: {
             stroke: branchColor(look, theme, byId.get(l.id)!.branch),
             strokeWidth: l.depth === 1 ? look.edge.width1 : look.edge.width2,
+            ...(focusSet && !focusSet.has(l.id) ? { opacity: 0.15 } : {}),
           },
         }
       })
     return { flowNodes, edges }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, editingText?.id, editingText?.text, look, theme])
+  }, [map, editingText?.id, editingText?.text, look, theme, focusId])
 
   const [nodes, setNodes, onNodesChange] = useNodesState<MindFlowNode>(flowNodes)
   // 折りたたみ・展開で形が変わっても、そのノードは画面上の同じ位置に留める
@@ -237,6 +257,20 @@ export default function Canvas() {
     const t = setTimeout(() => fitView({ padding: 0.25, duration: DURATION, maxZoom: 1.2 }), 30)
     return () => clearTimeout(t)
   }, [fitToken, map?.id, fitView])
+
+  // 集中モードに入ったら、その枝が画面に収まるように表示する
+  useEffect(() => {
+    if (!focusId || !map?.nodes[focusId]) return
+    const ids: { id: string }[] = []
+    const add = (id: string) => {
+      ids.push({ id })
+      if (!map.nodes[id].collapsed) map.nodes[id].children.forEach(add)
+    }
+    add(focusId)
+    const t = setTimeout(() => fitView({ nodes: ids, padding: 0.3, duration: DURATION, maxZoom: 1.2 }), 30)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusId])
 
   // "中心へ": bring the title to the middle of the screen, keeping the zoom level.
   useEffect(() => {
@@ -394,7 +428,12 @@ export default function Canvas() {
         <Controls showInteractive={false} position="bottom-right" />
       </ReactFlow>
       <DragHint />
-      <SidePicker />
+      <SearchBar />
+      <FocusBanner />
+      <div className="canvas-right">
+        <SidePicker />
+        <MemoPanel />
+      </div>
     </div>
   )
 }

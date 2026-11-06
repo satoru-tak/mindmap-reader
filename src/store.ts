@@ -168,6 +168,21 @@ interface State {
   goHome: () => void
   helpOpen: boolean
   setHelpOpen: (open: boolean) => void
+  /** メモ欄を開いているか */
+  memoOpen: boolean
+  setMemoOpen: (open: boolean) => void
+  /** 項目のメモを書き換える（空ならメモを消す） */
+  setNote: (id: string, note: string) => void
+  /** マップ内の検索 */
+  search: { open: boolean; query: string; hits: string[]; index: number }
+  openSearch: () => void
+  closeSearch: () => void
+  setSearchQuery: (q: string) => void
+  /** 次（+1）/ 前（-1）の一致へ */
+  searchStep: (delta: number) => void
+  /** 集中モード：この項目の枝だけを表示し、ほかを薄くする */
+  focusId: string | null
+  toggleFocus: () => void
   /** narrow screens: the sidebar opens as a drawer */
   sidebarOpen: boolean
   setSidebarOpen: (open: boolean) => void
@@ -202,6 +217,7 @@ function addClip(nodes: NodeRecord, clip: Clip, parentId: string): string {
   const n = node(clip.text, parentId)
   if (clip.page) n.page = clip.page
   if (clip.kind) n.kind = clip.kind
+  if (clip.note) n.note = clip.note
   if (clip.collapsed && clip.children.length) n.collapsed = true
   nodes[n.id] = n
   n.children = clip.children.map((c) => addClip(nodes, c, n.id))
@@ -237,6 +253,27 @@ export const useStore = create<State>((set, get) => {
       ...(record ? { past: [...past, before].slice(-HISTORY_LIMIT), future: [] } : {}),
       ...extra,
     })
+  }
+
+  /** 検索で見つけた項目へ：たたまれていれば開いて（元に戻すの履歴には入れない）、選ぶ */
+  const goToHit = (id: string) => {
+    const map = current()
+    if (!map?.nodes[id]) return
+    let cur = map.nodes[id].parentId
+    let hidden = false
+    while (cur) {
+      if (map.nodes[cur].collapsed) hidden = true
+      cur = map.nodes[cur].parentId
+    }
+    if (hidden)
+      mutate((nodes) => {
+        let p = nodes[id].parentId
+        while (p) {
+          nodes[p].collapsed = false
+          p = nodes[p].parentId
+        }
+      }, false)
+    set({ selectedId: id })
   }
 
   let flashTimer: ReturnType<typeof setTimeout> | undefined
@@ -279,6 +316,55 @@ export const useStore = create<State>((set, get) => {
       }
       set({ helpOpen: open })
     },
+    memoOpen: false,
+    setMemoOpen: (open) => set({ memoOpen: open }),
+    setNote: (id, note) => {
+      const map = current()
+      const clean = note.replace(/\s+$/, '')
+      if (!map?.nodes[id] || (map.nodes[id].note ?? '') === clean) return
+      mutate((nodes) => {
+        if (clean.trim()) nodes[id].note = clean
+        else delete nodes[id].note
+      })
+    },
+
+    search: { open: false, query: '', hits: [], index: 0 },
+    openSearch: () => set((s) => ({ search: { ...s.search, open: true } })),
+    closeSearch: () => set({ search: { open: false, query: '', hits: [], index: 0 } }),
+    setSearchQuery: (q) => {
+      const map = current()
+      const norm = (t: string) => t.normalize('NFKC').toLowerCase()
+      const needle = norm(q.trim())
+      const hits: string[] = []
+      if (map && needle) {
+        // 読む順（上から下）に並べる。たたまれた中も探す
+        const walk = (id: string) => {
+          const n = map.nodes[id]
+          if (norm(n.text).includes(needle) || (n.note && norm(n.note).includes(needle))) hits.push(id)
+          n.children.forEach(walk)
+        }
+        walk(map.rootId)
+      }
+      set({ search: { open: true, query: q, hits, index: 0 } })
+      if (hits.length) goToHit(hits[0])
+    },
+    searchStep: (delta) => {
+      const { search } = get()
+      if (!search.hits.length) return
+      const index = (search.index + delta + search.hits.length) % search.hits.length
+      set({ search: { ...search, index } })
+      goToHit(search.hits[index])
+    },
+
+    focusId: null,
+    toggleFocus: () => {
+      const { focusId, selectedId } = get()
+      const map = current()
+      if (focusId) return set({ focusId: null, fitToken: get().fitToken + 1 })
+      if (!map || !selectedId || selectedId === map.rootId) return
+      set({ focusId: selectedId })
+    },
+
     sidebarOpen: false,
     setSidebarOpen: (open) => set({ sidebarOpen: open }),
     flashId: null,
@@ -350,6 +436,8 @@ export const useStore = create<State>((set, get) => {
         past: [],
         future: [],
         fitToken: s.fitToken + 1,
+        focusId: null,
+        search: { open: false, query: '', hits: [], index: 0 },
       })),
 
     deleteMap: (id) =>

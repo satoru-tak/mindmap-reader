@@ -16,6 +16,8 @@ export interface MindNodeData {
   page?: string
   /** reading mode: 'quote' = taken from the book; undefined = own words */
   kind?: NodeKind
+  /** 項目のメモ（長めの説明。マップには印だけ出す） */
+  note?: string
   /** タイトルのすぐ下の枝だけ：左右どちらに置くか。undefined＝自動 */
   side?: Side
 }

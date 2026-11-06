@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useStore } from './store'
 import { backupFileName, downloadText, exportJson, FILE_EXT, parseImport, safeFileName } from './transfer'
 import { isMarkdownFile, MD_EXT, parseMarkdownMap, toMarkdown } from './markdown'
+import { markBackedUp } from './Panels'
 
 /** Read files chosen or dropped by the user and add the maps they contain. */
 export async function importFiles(files: FileList | File[]) {
@@ -45,6 +46,7 @@ export function exportAll() {
   const { maps, showToast } = useStore.getState()
   const list = Object.values(maps).sort((a, b) => b.updatedAt - a.updatedAt)
   const ok = downloadText(backupFileName(), exportJson(list))
+  if (ok) markBackedUp()
   showToast(ok ? `${list.length}件のマップをバックアップしました（ダウンロードフォルダ）` : '書き出せませんでした', ok ? 'info' : 'error')
 }
 
