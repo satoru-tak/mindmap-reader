@@ -539,6 +539,44 @@ test('サイドバー：すべてバックアップ', async (p) => {
   eq(dl.suggestedFilename().startsWith('mindmap-backup-'), true, 'ファイル名')
 })
 
+test('Markdown：書き出すと見出しと箇条書きになり、読み込むと同じ形に戻る（引用・ページも）', async (p) => {
+  await click(p, '引用')
+  await p.keyboard.press('q')
+  await p.keyboard.press('p')
+  await p.keyboard.type('12')
+  await p.keyboard.press('Enter')
+  await click(p, '要点')
+  await p.keyboard.press('Tab')
+  await p.keyboard.type('大事なこと')
+  await p.keyboard.press('Enter')
+  await p.keyboard.press('Escape')
+  const before = await h.tree(p)
+  await openSettings(p)
+  const [dl] = await Promise.all([p.waitForEvent('download'), p.click('text=Markdown で書き出す')])
+  eq(dl.suggestedFilename(), '本のタイトル.md', 'ファイル名')
+  const md = await (await import('node:fs')).promises.readFile(await dl.path(), 'utf8')
+  eq(md.split('\n').slice(0, 9), ['# 本のタイトル', '', '## 第1章', '', '- 要点', '  - 大事なこと', '- “引用”（p.12）', '- 気づき', ''], '中身')
+  await p.locator('.file-menu input[type=file]').setInputFiles({ name: '本のタイトル.md', mimeType: 'text/markdown', buffer: Buffer.from(md) })
+  await pause(p, 500)
+  eq((await h.tree(p)).replace('本のタイトル（2）', '本のタイトル'), before, '読み込むと同じ形（同じ名前があるので（2）が付く）')
+  const q = await p.evaluate(() => {
+    const s = window.__mindmap.getState()
+    const m = s.maps[s.currentMapId]
+    const n = Object.values(m.nodes).find((x) => x.text === '引用')
+    return [m.mode, n.kind, n.page]
+  })
+  eq(q, ['reading', 'quote', '12'], '引用とページ番号も戻る')
+})
+
+test('Markdown：ほかのアプリの箇条書き（見出しが複数）は、ファイル名をタイトルにして読み込む', async (p) => {
+  const md = '# 目標\n- 健康\n  - 毎日歩く\n# 仕事\n- 資料'
+  await openSettings(p)
+  await p.locator('.file-menu input[type=file]').setInputFiles({ name: '今年.md', mimeType: 'text/markdown', buffer: Buffer.from(md) })
+  await pause(p, 500)
+  eq(await h.tree(p), '今年(目標(健康(毎日歩く)),仕事(資料))', 'ファイル名がタイトル')
+  eq(await h.mode(p), 'free', '引用・ページがなければシンプル')
+})
+
 // =====================================================================
 // ボタン・画面
 // =====================================================================

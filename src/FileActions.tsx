@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from './store'
 import { backupFileName, downloadText, exportJson, FILE_EXT, parseImport, safeFileName } from './transfer'
+import { isMarkdownFile, MD_EXT, parseMarkdownMap, toMarkdown } from './markdown'
 
 /** Read files chosen or dropped by the user and add the maps they contain. */
 export async function importFiles(files: FileList | File[]) {
@@ -8,6 +9,12 @@ export async function importFiles(files: FileList | File[]) {
   const all = []
   const failed: string[] = []
   for (const f of Array.from(files)) {
+    if (isMarkdownFile(f.name)) {
+      const map = parseMarkdownMap(await f.text(), f.name.replace(/\.(md|markdown|txt)$/i, ''))
+      if (map) all.push(map)
+      else failed.push(`${f.name}：項目が見つかりませんでした`)
+      continue
+    }
     const res = parseImport(await f.text())
     if (res.ok) all.push(...res.maps)
     else failed.push(`${f.name}：${res.reason}`)
@@ -23,6 +30,15 @@ export function exportCurrent() {
   if (!map) return
   const ok = downloadText(safeFileName(map.title) + FILE_EXT, exportJson([map]))
   showToast(ok ? `「${map.title}」を書き出しました（ダウンロードフォルダ）` : '書き出せませんでした', ok ? 'info' : 'error')
+}
+
+/** このマップを Markdown で書き出す（ほかのマインドマップ・メモアプリで開ける） */
+export function exportMarkdown() {
+  const { maps, currentMapId, showToast } = useStore.getState()
+  const map = currentMapId ? maps[currentMapId] : null
+  if (!map) return
+  const ok = downloadText(safeFileName(map.title) + MD_EXT, toMarkdown(map), 'text/markdown')
+  showToast(ok ? `「${map.title}」を Markdown で書き出しました（ダウンロードフォルダ）` : '書き出せませんでした', ok ? 'info' : 'error')
 }
 
 export function exportAll() {
@@ -51,16 +67,19 @@ export function FileMenu() {
       <button onClick={exportCurrent} title="今開いているマップをファイルに保存">
         このマップを書き出す
       </button>
+      <button onClick={exportMarkdown} title="ほかのマインドマップやメモアプリで開ける形（.md）で保存">
+        Markdown で書き出す
+      </button>
       <button onClick={exportAll} title="すべてのマップを1つのファイルに保存">
         すべてバックアップ
       </button>
-      <button onClick={() => input.current?.click()} title="書き出したファイルを開く（画面にドロップしても可）">
+      <button onClick={() => input.current?.click()} title="書き出したファイルや Markdown（.md）を開く（画面にドロップしても可）">
         ファイルを開く…
       </button>
       <input
         ref={input}
         type="file"
-        accept=".json,application/json"
+        accept=".json,application/json,.md,.markdown,.txt,text/markdown,text/plain"
         multiple
         hidden
         onChange={(e) => {

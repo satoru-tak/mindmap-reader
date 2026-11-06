@@ -30,9 +30,9 @@ export function backupFileName(date = new Date()): string {
 }
 
 /** Start a download of `text` as a file. Returns false if the browser refused. */
-export function downloadText(fileName: string, text: string): boolean {
+export function downloadText(fileName: string, text: string, type = 'application/json'): boolean {
   try {
-    const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }))
+    const url = URL.createObjectURL(new Blob([text], { type: `${type};charset=utf-8` }))
     const a = document.createElement('a')
     a.href = url
     a.download = fileName
