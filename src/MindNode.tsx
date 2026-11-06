@@ -19,6 +19,8 @@ export type MindFlowNode = Node<
     note?: boolean
     /** 集中モードで、集中している枝の外 */
     dimmed?: boolean
+    /** タイトルを左右に広げているとき：左右それぞれの、たたむボタン用の情報 */
+    rootSides?: Record<'left' | 'right', { count: number; collapsed: boolean; hidden: number }>
   },
   'mind'
 >
@@ -95,17 +97,37 @@ function MindNodeView({ id, data, width, height }: NodeProps<MindFlowNode>) {
         </button>
       )}
       </div>
-      {data.childCount > 0 && (
-        <button
-          className="collapse-btn nodrag"
-          title={data.collapsed ? '展開する' : '折りたたむ'}
-          onClick={(e) => {
-            e.stopPropagation()
-            toggleCollapse(id)
-          }}
-        >
-          {data.collapsed ? data.hiddenCount : '−'}
-        </button>
+      {data.rootSides ? (
+        // タイトル（左右に広げているとき）：右側は右のボタン、左側は左のボタンでたたむ
+        (['right', 'left'] as const).map(
+          (side) =>
+            data.rootSides![side].count > 0 && (
+              <button
+                key={side}
+                className={`collapse-btn nodrag${side === 'left' ? ' collapse-left' : ''}`}
+                title={`${side === 'left' ? '左' : '右'}側の枝を${data.rootSides![side].collapsed ? '展開する' : '折りたたむ'}`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  toggleCollapse(id, side)
+                }}
+              >
+                {data.rootSides![side].collapsed ? data.rootSides![side].hidden : '−'}
+              </button>
+            ),
+        )
+      ) : (
+        data.childCount > 0 && (
+          <button
+            className="collapse-btn nodrag"
+            title={data.collapsed ? '展開する' : '折りたたむ'}
+            onClick={(e) => {
+              e.stopPropagation()
+              toggleCollapse(id)
+            }}
+          >
+            {data.collapsed ? data.hiddenCount : '−'}
+          </button>
+        )
       )}
       <Handle id="sr" type="source" position={Position.Right} className="mind-handle" isConnectable={false} />
     </div>

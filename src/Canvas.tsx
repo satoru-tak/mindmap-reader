@@ -18,6 +18,7 @@ import {
   type OnNodeDrag,
 } from '@xyflow/react'
 import { isDescendant, layoutOf, setLayoutCache, useStore, type DragState, type NodePos } from './store'
+import type { Side } from './types'
 import { H_GAP, layoutTree, V_GAP } from './layout'
 import MindNode, { type MindFlowNode } from './MindNode'
 import SidePicker from './SidePicker'
@@ -102,15 +103,28 @@ export default function Canvas() {
   const { flowNodes, edges } = useMemo(() => {
     if (!map) return { flowNodes: [] as MindFlowNode[], edges: [] as Edge[] }
     const showReading = map.mode === 'reading'
+    const both = layoutOf(map) === 'both'
+    const sides = new Map<string, Side>()
     const laid = layoutTree(map.nodes, map.rootId, {
       editing: editingText,
       showReading,
       anchor: look.node === 'underline' ? 'bottom' : 'center',
-      both: layoutOf(map) === 'both',
+      both,
+      sidesOut: sides,
     })
     const cache = new Map<string, NodePos>()
     for (const l of laid) cache.set(l.id, { x: l.x, y: l.y, height: l.height, depth: l.depth, dir: l.dir })
-    setLayoutCache(cache)
+    setLayoutCache(cache, sides)
+    // タイトルの左右それぞれの、たたむボタン用の数
+    const rootNode = map.nodes[map.rootId]
+    const sideKids = (side: Side) => rootNode.children.filter((k) => (sides.get(k) ?? 'right') === side)
+    const hiddenOf = (kids: string[]) => kids.reduce((a, k) => a + 1 + countDescendants(map.nodes, k), 0)
+    const rootSides = both
+      ? {
+          right: { count: sideKids('right').length, collapsed: rootNode.collapsed, hidden: hiddenOf(sideKids('right')) },
+          left: { count: sideKids('left').length, collapsed: !!rootNode.collapsedLeft, hidden: hiddenOf(sideKids('left')) },
+        }
+      : undefined
     const byId = new Map(laid.map((l) => [l.id, l]))
     // 集中モード：その枝と、タイトルまでの道だけをはっきり見せる
     let focusSet: Set<string> | null = null
@@ -148,6 +162,7 @@ export default function Canvas() {
           dir: l.dir,
           note: !!n.note,
           dimmed: focusSet ? !focusSet.has(l.id) : false,
+          rootSides: l.depth === 0 ? rootSides : undefined,
         },
       }
     })

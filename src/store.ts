@@ -83,9 +83,13 @@ export function topBranch(nodes: NodeRecord, rootId: string, id: string): string
 
 export const layoutOf = (map: MindMap): BranchLayout => map.layout ?? defaultLayout(map.mode)
 let layoutCache = new Map<string, NodePos>()
-export const setLayoutCache = (m: Map<string, NodePos>) => {
+/** タイトルのすぐ下の枝が、左右どちらにあるか（たたんで見えない枝も含む） */
+let rootSides = new Map<string, 'left' | 'right'>()
+export const setLayoutCache = (m: Map<string, NodePos>, sides?: Map<string, 'left' | 'right'>) => {
   layoutCache = m
+  if (sides) rootSides = sides
 }
+export const rootSideOf = (id: string) => rootSides.get(id) ?? 'right'
 
 interface State {
   maps: Record<string, MindMap>
@@ -136,7 +140,8 @@ interface State {
    */
   retargetNew: (as: 'child' | 'sibling') => void
   deleteNode: (id?: string) => void
-  toggleCollapse: (id?: string) => void
+  /** side：タイトルを左右に広げているとき、どちら側をたたむか（なし＝両側まとめて） */
+  toggleCollapse: (id?: string, side?: 'left' | 'right') => void
   moveNode: (id: string, newParentId: string, side?: Side) => void
   /** 枝の伸ばし方を切り替える（右だけ ⇄ 左右） */
   setLayout: (layout: BranchLayout) => void
@@ -270,6 +275,7 @@ export const useStore = create<State>((set, get) => {
         let p = nodes[id].parentId
         while (p) {
           nodes[p].collapsed = false
+          delete nodes[p].collapsedLeft
           p = nodes[p].parentId
         }
       }, false)
@@ -473,6 +479,7 @@ export const useStore = create<State>((set, get) => {
         nodes[c.id] = c
         parent.children.push(c.id)
         parent.collapsed = false
+        delete parent.collapsedLeft
         return { selectedId: c.id, editingId: c.id, lastAddedId: c.id, lastAddedFrom: parent.id, lastAddedKind: 'child', draft: null, editCaretEnd: false }
       })
     },
@@ -556,6 +563,7 @@ export const useStore = create<State>((set, get) => {
         const ids = clips.map((c) => addClip(nodes, c, parent.id))
         parent.children.push(...ids)
         parent.collapsed = false
+        delete parent.collapsedLeft
         return { selectedId: ids[0] }
       })
     },
@@ -623,12 +631,24 @@ export const useStore = create<State>((set, get) => {
       })
     },
 
-    toggleCollapse: (id) => {
+    toggleCollapse: (id, side) => {
       const target = id ?? get().selectedId
       const map = current()
       if (!target || !map || !map.nodes[target]?.children.length) return
+      const bothRoot = target === map.rootId && layoutOf(map) === 'both'
       mutate((nodes) => {
-        nodes[target].collapsed = !nodes[target].collapsed
+        const n = nodes[target]
+        if (bothRoot) {
+          // タイトル：右は collapsed、左は collapsedLeft。片側だけ、または両側まとめて
+          if (side === 'left') n.collapsedLeft = !n.collapsedLeft
+          else if (side === 'right') n.collapsed = !n.collapsed
+          else {
+            const fold = !(n.collapsed && n.collapsedLeft)
+            n.collapsed = fold
+            n.collapsedLeft = fold
+          }
+          if (!n.collapsedLeft) delete n.collapsedLeft
+        } else n.collapsed = !n.collapsed
         // 折りたたんだノードを選び、画面上の位置を保つ。
         // （選んでいたノードが隠れた場合も、折りたたんだノードに選択が移る）
         return { selectedId: target, pinId: target }
@@ -655,6 +675,7 @@ export const useStore = create<State>((set, get) => {
         nodes[id].parentId = newParentId
         nodes[newParentId].children.push(id)
         nodes[newParentId].collapsed = false
+        delete nodes[newParentId].collapsedLeft
         // the side only means something right under the title
         if (toTitle && side) nodes[id].side = side
         else delete nodes[id].side
@@ -691,7 +712,13 @@ export const useStore = create<State>((set, get) => {
       const nodes = map.nodes
       const n = nodes[sel]
       const pos = (id: string) => layoutCache.get(id)
-      const visibleKids = (id: string) => (nodes[id].collapsed ? [] : nodes[id].children)
+      const visibleKids = (id: string) => {
+        if (id !== map.rootId) return nodes[id].collapsed ? [] : nodes[id].children
+        const both = layoutOf(map) === 'both'
+        return nodes[id].children.filter((k) =>
+          both && rootSideOf(k) === 'left' ? !nodes[id].collapsedLeft : !nodes[id].collapsed,
+        )
+      }
       /** child to go to with →: the one you came from, otherwise the top one */
       const nextChild = (id: string) => {
         const kids = visibleKids(id)
@@ -705,7 +732,15 @@ export const useStore = create<State>((set, get) => {
       if (sel === map.rootId && (dir === 'left' || dir === 'right')) {
         const want = dir === 'right' ? 1 : -1
         const kids = visibleKids(sel).filter((k) => dirOf(k) === want)
-        if (!kids.length) return
+        if (!kids.length) {
+          // その側がたたまれていれば開く
+          const side = dir === 'right' ? 'right' : 'left'
+          const both = layoutOf(map) === 'both'
+          const folded = side === 'left' ? both && n.collapsedLeft : n.collapsed
+          const has = n.children.some((k) => (both ? rootSideOf(k) === side : side === 'right'))
+          if (folded && has) get().toggleCollapse(sel, both ? side : undefined)
+          return
+        }
         const remembered = trail.get(sel)
         next = remembered && kids.includes(remembered) ? remembered : kids[0]
         if (mod === 'shift') {

@@ -1315,3 +1315,9 @@
   border-color: var(--accent);
   color: var(--on-accent);
 }
+
+/* タイトルの左側の、たたむボタン（左右に広げているとき） */
+.mind-node > .collapse-btn.collapse-left {
+  right: auto;
+  left: -11px;
+}

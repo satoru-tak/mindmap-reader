@@ -77,6 +77,8 @@ export interface LayoutOptions {
   anchor?: 'center' | 'bottom'
   /** 左右に枝を伸ばすか */
   both?: boolean
+  /** タイトルのすぐ下の枝が左右どちらになったか（たたんだ枝も含む）を入れて返す */
+  sidesOut?: Map<string, 'left' | 'right'>
 }
 
 /**
@@ -107,7 +109,7 @@ export function assignSides(nodes: NodeRecord, kids: string[], heights: number[]
  * also to the left). Each subtree gets a vertical band and its parent is placed on it.
  */
 export function layoutTree(nodes: NodeRecord, rootId: string, opts: LayoutOptions = {}): LaidOutNode[] {
-  const { editing, showReading = false, anchor = 'center', both = false } = opts
+  const { editing, showReading = false, anchor = 'center', both = false, sidesOut } = opts
   const sizes = new Map<string, { width: number; height: number }>()
   const bandHeight = new Map<string, number>()
 
@@ -179,13 +181,19 @@ export function layoutTree(nodes: NodeRecord, rootId: string, opts: LayoutOption
   }
 
   if (!nodes[rootId]) return []
-  measure(rootId, 0)
+  // the title: measure every branch (also folded ones) so the sides don't change when one side is folded
+  const rootNode = nodes[rootId]
+  sizes.set(rootId, measureNode(editing?.id === rootId ? editing.text : rootNode.text, 0, editing?.id === rootId ? EDIT_MAX_WIDTH : MAX_WIDTH, editing?.id === rootId, rootNode.note ? NOTE_EXTRA : 0))
+  const kids = rootNode.children
+  kids.forEach((k) => measure(k, 1))
   const root = sizes.get(rootId)!
-  const kids = visibleChildren(rootId)
   const sides = both ? assignSides(nodes, kids, kids.map((k) => bandHeight.get(k)!)) : kids.map(() => 'right' as const)
+  if (sidesOut) kids.forEach((k, i) => sidesOut.set(k, sides[i]))
+  // 右側は collapsed、左側は collapsedLeft でたたむ（右だけのときは collapsed で全部）
+  const hidden = (side: 'left' | 'right') => (side === 'left' && both ? !!rootNode.collapsedLeft : rootNode.collapsed)
   const branchOf = new Map(kids.map((k, i) => [k, i]))
   const sideBlocks = (side: 'left' | 'right') => {
-    const list = kids.filter((_, i) => sides[i] === side)
+    const list = hidden(side) ? [] : kids.filter((_, i) => sides[i] === side)
     return stack(list, 1, (k) => {
       const kx = side === 'right' ? root.width + H_GAP : -H_GAP - sizes.get(k)!.width
       return block(k, 1, kx, branchOf.get(k)!, side === 'right' ? 1 : -1)
