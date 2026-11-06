@@ -1018,3 +1018,73 @@
     opacity: 0;
   }
 }
+
+/* ---------- 左側の枝（左右対称にする） ---------- */
+/* カード：枝の色の帯はタイトルに近い側（右）に置く */
+.mind-node.side-left {
+  border-left: 1.5px solid var(--node-border);
+  border-right: 4px solid var(--branch);
+  padding: 7px 11px 7px 13px;
+}
+.mind-node.side-left.depth-1 {
+  border-color: color-mix(in srgb, var(--branch) 35%, var(--node-border));
+  border-right-color: var(--branch);
+}
+.mind-node.side-left.quote {
+  border-color: var(--quote-border);
+  border-right-color: var(--branch);
+}
+.mind-node.side-left.selected {
+  border-color: var(--accent);
+}
+/* 丸・下線は左右対称なので、枠はそのまま */
+:root[data-shape='pill'] .mind-node.side-left {
+  border: 1.5px solid color-mix(in srgb, var(--branch) 55%, var(--node-border));
+  padding: 7px 13.5px;
+}
+:root[data-shape='pill'] .mind-node.side-left.selected {
+  border-color: var(--accent);
+}
+:root[data-shape='underline'] .mind-node.side-left:not(.depth-0) {
+  border: 0;
+  padding: 7px 15px 8px;
+}
+/* たたむボタンは、子が伸びる側（左）に出す */
+.mind-node.side-left > .collapse-btn {
+  right: auto;
+  left: -11px;
+}
+
+/* 枝の伸ばし方（ツールバー）と、この枝の位置（キャンバス右上） */
+.layout-switch {
+  flex-shrink: 0;
+}
+.layout-switch button {
+  padding: 3px 9px;
+  font-size: 12px;
+}
+.canvas {
+  position: relative;
+}
+.side-picker {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px var(--shadow);
+  font-size: 12px;
+}
+.side-picker .label {
+  color: var(--muted);
+}
+.side-picker .seg button {
+  padding: 3px 9px;
+  font-size: 12px;
+}

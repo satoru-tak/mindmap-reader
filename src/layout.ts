@@ -64,21 +64,48 @@ export interface LaidOutNode {
   height: number
   depth: number
   branch: number // index of the top-level branch, used for colour
+  /** 1 = タイトルの右側、-1 = 左側（タイトル自身は 1） */
+  dir: 1 | -1
+}
+
+export interface LayoutOptions {
+  editing?: { id: string; text: string } | null
+  showReading?: boolean
+  /** 線がつながる高さ。center＝ノードの真ん中、bottom＝ノードの下の端（下線の形） */
+  anchor?: 'center' | 'bottom'
+  /** 左右に枝を伸ばすか */
+  both?: boolean
 }
 
 /**
- * Left-to-right tree layout: root on the left, children to the right,
- * each subtree gets a vertical band and the parent is centred on it.
+ * 左右の振り分け。上から順に、右側の高さが全体の半分になるまで右、残りを左に置く
+ * （順番は保ったまま）。本人が左右を決めた枝は、その指定を優先する。
  */
-export function layoutTree(
-  nodes: NodeRecord,
-  rootId: string,
-  editing?: { id: string; text: string } | null,
-  showReading = false,
-  /** 線がつながる高さ。center＝ノードの真ん中、bottom＝ノードの下の端（下線の形） */
-  anchor: 'center' | 'bottom' = 'center',
-): LaidOutNode[] {
-  const out: LaidOutNode[] = []
+export function assignSides(nodes: NodeRecord, kids: string[], heights: number[]): ('left' | 'right')[] {
+  const total = heights.reduce((a, b) => a + b, 0)
+  let right = 0
+  let switched = false // 一度左に移ったら、後ろの枝は左に置く（上からの順番を保つ）
+  return kids.map((k, i) => {
+    const fixed = nodes[k].side
+    let side = fixed
+    if (!side) {
+      if (!switched && (i === 0 || right + heights[i] / 2 <= total / 2)) side = 'right'
+      else {
+        side = 'left'
+        switched = true
+      }
+    }
+    if (side === 'right') right += heights[i]
+    return side
+  })
+}
+
+/**
+ * Tree layout. The title sits in the middle; branches grow to the right (and, with both,
+ * also to the left). Each subtree gets a vertical band and its parent is placed on it.
+ */
+export function layoutTree(nodes: NodeRecord, rootId: string, opts: LayoutOptions = {}): LaidOutNode[] {
+  const { editing, showReading = false, anchor = 'center', both = false } = opts
   const sizes = new Map<string, { width: number; height: number }>()
   const bandHeight = new Map<string, number>()
 
@@ -102,56 +129,76 @@ export function layoutTree(
     return h
   }
 
-  const place = (id: string, depth: number, x: number, top: number, branch: number) => {
-    const size = sizes.get(id)!
-    const band = bandHeight.get(id)!
-    out.push({ id, x, y: top + band / 2 - size.height / 2, ...size, depth, branch })
-    const kids = visibleChildren(id)
-    let kidsHeight = 0
-    kids.forEach((k, i) => (kidsHeight += bandHeight.get(k)! + (i > 0 ? V_GAP : 0)))
-    let cursor = top + band / 2 - kidsHeight / 2
-    kids.forEach((k, i) => {
-      place(k, depth + 1, x + size.width + H_GAP, cursor, depth === 0 ? i : branch)
-      cursor += bandHeight.get(k)! + V_GAP
-    })
-  }
-
   /*
-   * 下線の形：線は各ノードの下の端につながる。親の下の端を、最初と最後の子の
-   * 下の端のちょうど真ん中に置く。子が1つ（または奇数個の真ん中）なら、
-   * 親と子の下線が一直線になる。タイトル（カード）だけは真ん中につながる。
+   * A block = a node and everything under it, laid out with its own top at y = 0.
+   * anchor: the height where the line into this block connects.
+   *  - center: the middle of the node; the parent sits in the middle of its children's band
+   *  - bottom (下線の形): the bottom edge; the parent's bottom sits halfway between the
+   *    first and the last child's bottoms, so a single (or middle) child continues in a straight line
    */
   type Block = { items: LaidOutNode[]; height: number; anchor: number }
-  const anchorOf = (h: number, depth: number) => (depth > 0 ? h : h / 2)
-  const block = (id: string, depth: number, x: number, branch: number): Block => {
+  const anchorOf = (h: number, depth: number) => (anchor === 'bottom' && depth > 0 ? h : h / 2)
+
+  /** stack blocks top to bottom; returns them with tops relative to the stack */
+  const stack = (kids: string[], depth: number, place: (k: string) => Block) => {
+    let cursor = 0
+    const placed: { b: Block; top: number }[] = []
+    for (const k of kids) {
+      const b = place(k)
+      placed.push({ b, top: cursor })
+      cursor += b.height + V_GAP
+    }
+    const height = Math.max(0, cursor - V_GAP)
+    const first = placed[0]
+    const last = placed[placed.length - 1]
+    const mid =
+      anchor === 'bottom' && first
+        ? (first.top + first.b.anchor + last.top + last.b.anchor) / 2
+        : height / 2
+    void depth
+    return { placed, height, mid }
+  }
+
+  const block = (id: string, depth: number, x: number, branch: number, dir: 1 | -1): Block => {
     const size = sizes.get(id)!
     const own = anchorOf(size.height, depth)
     const kids = visibleChildren(id)
-    if (!kids.length) {
-      return { items: [{ id, x, y: 0, ...size, depth, branch }], height: size.height, anchor: own }
-    }
-    const childX = x + size.width + H_GAP
-    let cursor = 0
-    const placed: { b: Block; top: number }[] = []
-    kids.forEach((k, i) => {
-      const b = block(k, depth + 1, childX, depth === 0 ? i : branch)
-      placed.push({ b, top: cursor })
-      cursor += b.height + V_GAP
+    const self = (y: number): LaidOutNode => ({ id, x, y, ...size, depth, branch, dir })
+    if (!kids.length) return { items: [self(0)], height: size.height, anchor: own }
+    const s = stack(kids, depth + 1, (k) => {
+      const kx = dir === 1 ? x + size.width + H_GAP : x - H_GAP - sizes.get(k)!.width
+      return block(k, depth + 1, kx, branch, dir)
     })
-    const stack = cursor - V_GAP
-    const first = placed[0]
-    const last = placed[placed.length - 1]
-    const mid = (first.top + first.b.anchor + last.top + last.b.anchor) / 2
-    const selfTop = mid - own
+    const selfTop = s.mid - own
     const shift = Math.max(0, -selfTop)
-    const items: LaidOutNode[] = [{ id, x, y: selfTop + shift, ...size, depth, branch }]
-    for (const { b, top } of placed) for (const it of b.items) items.push({ ...it, y: it.y + top + shift })
-    return { items, height: Math.max(stack, selfTop + size.height) + shift, anchor: mid + shift }
+    const items: LaidOutNode[] = [self(selfTop + shift)]
+    for (const { b, top } of s.placed) for (const it of b.items) items.push({ ...it, y: it.y + top + shift })
+    return { items, height: Math.max(s.height, selfTop + size.height) + shift, anchor: s.mid + shift }
   }
 
-  if (!nodes[rootId]) return out
+  if (!nodes[rootId]) return []
   measure(rootId, 0)
-  if (anchor === 'bottom') return block(rootId, 0, 0, -1).items
-  place(rootId, 0, 0, 0, -1)
-  return out
+  const root = sizes.get(rootId)!
+  const kids = visibleChildren(rootId)
+  const sides = both ? assignSides(nodes, kids, kids.map((k) => bandHeight.get(k)!)) : kids.map(() => 'right' as const)
+  const branchOf = new Map(kids.map((k, i) => [k, i]))
+  const sideBlocks = (side: 'left' | 'right') => {
+    const list = kids.filter((_, i) => sides[i] === side)
+    return stack(list, 1, (k) => {
+      const kx = side === 'right' ? root.width + H_GAP : -H_GAP - sizes.get(k)!.width
+      return block(k, 1, kx, branchOf.get(k)!, side === 'right' ? 1 : -1)
+    })
+  }
+  const R = sideBlocks('right')
+  const L = sideBlocks('left')
+  // both sides line up on the title's own connection height
+  const rootAnchor = root.height / 2
+  const out: LaidOutNode[] = [{ id: rootId, x: 0, y: 0, ...root, depth: 0, branch: -1, dir: 1 }]
+  for (const side of [R, L]) {
+    const top = rootAnchor - side.mid
+    for (const { b, top: t } of side.placed) for (const it of b.items) out.push({ ...it, y: it.y + t + top })
+  }
+  // keep every y ≥ 0 (positions are relative; this keeps the numbers tidy)
+  const minY = Math.min(...out.map((o) => o.y))
+  return minY < 0 ? out.map((o) => ({ ...o, y: o.y - minY })) : out
 }

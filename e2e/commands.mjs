@@ -682,6 +682,165 @@ test('長いタイトル：一覧では1行で右端を薄くして消し、マ�
   eq(sb, true, 'サイドバーが横にはみ出さない')
 })
 
+// ---------- 左右の枝 ----------
+/** シンプルマップを作り、タイトルの下に枝を作る（[名前, [子…]] の並び） */
+const buildSimple = async (p, title, branches) => {
+  await p.click('text=＋ シンプルマップ')
+  await p.keyboard.type(title)
+  await p.keyboard.press('Enter')
+  await p.keyboard.press('Escape')
+  await p.evaluate((branches) => {
+    const S = () => window.__mindmap.getState()
+    for (const [top, kids] of branches) {
+      S().select(S().maps[S().currentMapId].rootId)
+      S().addChild()
+      S().commitEdit(S().editingId, top)
+      const topId = S().selectedId
+      for (const k of kids) {
+        S().select(topId)
+        S().addChild()
+        S().commitEdit(S().editingId, k)
+      }
+    }
+  }, branches)
+  await pause(p, 300)
+}
+const BRANCHES = [['仕事', ['資料', '会議', 'メール']], ['家', ['掃除', '買い物']], ['勉強', ['本', 'メモ']], ['健康', ['散歩']], ['趣味', ['アニメ', '漫画', 'ゲーム']], ['お金', ['家計簿']]]
+/** 項目がタイトルの左にあるか（画面上の位置で判断） */
+const sideOf = (p, text) =>
+  p.evaluate((text) => {
+    const nodes = [...document.querySelectorAll('.mind-node')]
+    const root = nodes.find((n) => n.classList.contains('depth-0')).getBoundingClientRect()
+    const r = nodes.find((n) => n.textContent.replace('−', '').startsWith(text)).getBoundingClientRect()
+    return r.right <= root.left ? 'left' : r.left >= root.right ? 'right' : 'overlap'
+  }, text)
+
+test('左右の枝：シンプルは左右、読書は右だけが最初の形。切り替えられる', async (p) => {
+  eq(await p.locator('.layout-switch [aria-checked="true"]').textContent(), '右だけ', '読書マップは右だけ')
+  await buildSimple(p, '今週', BRANCHES)
+  eq(await p.locator('.layout-switch [aria-checked="true"]').textContent(), '左右', 'シンプルマップは左右')
+  await p.click('.layout-switch >> text=右だけ')
+  await pause(p, 300)
+  eq(await sideOf(p, 'お金'), 'right', '右だけにすると全部右')
+  await p.click('.layout-switch >> text=左右')
+  await pause(p, 300)
+  eq(await sideOf(p, 'お金'), 'left', '左右に戻すと左にも出る')
+})
+
+test('左右の枝：量に合わせて自動で振り分け、順番は上から保つ', async (p) => {
+  await buildSimple(p, '今週', BRANCHES)
+  const sides = []
+  for (const [t] of BRANCHES) sides.push(await sideOf(p, t))
+  const firstLeft = sides.indexOf('left')
+  eq(firstLeft > 0, true, `右と左の両方に枝がある：${sides.join(',')}`)
+  eq(sides.slice(firstLeft).every((x) => x === 'left'), true, `一度左になったら後ろは全部左（上からの順番を保つ）：${sides.join(',')}`)
+  for (const k of ['資料', '会議', 'メール']) eq(await sideOf(p, k), 'right', `${k} は親と同じ右側`)
+  for (const k of ['アニメ', '漫画', 'ゲーム']) eq(await sideOf(p, k), 'left', `${k} は親と同じ左側`)
+})
+
+test('左右の枝：Option/Alt+← → とボタンで、枝の位置を決める・自動に戻す', async (p) => {
+  await buildSimple(p, '今週', BRANCHES)
+  await click(p, '会議') // 仕事の枝の中の項目
+  await p.keyboard.press('Alt+ArrowLeft')
+  await pause(p, 300)
+  eq(await sideOf(p, '仕事'), 'left', '枝ごと左へ')
+  eq(await sideOf(p, '会議'), 'left', '中の項目も左へ')
+  eq(await p.locator('.side-picker [aria-checked="true"]').textContent(), '← 左', 'ボタンも左を表示')
+  await p.click('.side-picker >> text=自動')
+  await pause(p, 300)
+  eq(await sideOf(p, '仕事'), 'right', '自動に戻すと元の右')
+  await click(p, '仕事')
+  await p.click('.side-picker >> text=左')
+  await pause(p, 300)
+  eq(await sideOf(p, '仕事'), 'left', 'ボタンで左へ')
+  await p.reload()
+  await p.waitForSelector('.mind-node')
+  await pause(p, 300)
+  eq(await sideOf(p, '仕事'), 'left', '再読み込みしても残る')
+  // 書き出し → 読み込みでも、左右の指定と伸ばし方が残る
+  const json = await p.evaluate(() => {
+    const s = window.__mindmap.getState()
+    const m = s.maps[s.currentMapId]
+    return JSON.stringify({ app: 'mindmap-reader', format: 1, exportedAt: Date.now(), maps: [{ ...m, layout: 'both' }] })
+  })
+  const before = await h.mapCount(p)
+  await p.locator('.file-menu input[type=file]').setInputFiles({ name: 'x.mindmap.json', mimeType: 'application/json', buffer: Buffer.from(json) })
+  await pause(p, 500)
+  eq(await h.mapCount(p), before + 1, '読み込めた')
+  const imported = await p.evaluate(() => {
+    const s = window.__mindmap.getState()
+    const m = s.maps[s.currentMapId]
+    const work = Object.values(m.nodes).find((n) => n.text === '仕事')
+    return [m.layout, work && work.side]
+  })
+  eq(imported, ['both', 'left'], '読み込んだマップにも残る')
+})
+
+test('左右の枝：読書マップで Alt+← を押すと、左右に広げる形に切り替わる', async (p) => {
+  await click(p, '全体の気づき・感想')
+  await p.keyboard.press('Alt+ArrowLeft')
+  await pause(p, 300)
+  eq(await p.locator('.layout-switch [aria-checked="true"]').textContent(), '左右', '左右に切り替わる')
+  eq(await sideOf(p, '全体の気づき・感想'), 'left', '左へ')
+})
+
+test('左右の枝：左側では ← で詳しい側、→ でまとめ側へ。タイトルから ← で左の枝へ', async (p) => {
+  await buildSimple(p, '今週', BRANCHES)
+  await click(p, '今週')
+  await p.keyboard.press('ArrowLeft')
+  eq(await h.selected(p), 'お金', 'タイトルから ← で左の枝（直前にいた枝）')
+  await p.keyboard.press('ArrowLeft')
+  eq(await h.selected(p), '家計簿', '← でさらに詳しい側')
+  await p.keyboard.press('ArrowRight')
+  eq(await h.selected(p), 'お金', '→ でまとめ側')
+  await p.keyboard.press('ArrowRight')
+  eq(await h.selected(p), '今週', '→ でタイトル')
+  await p.keyboard.press('ArrowRight')
+  eq(await h.selected(p), '仕事', 'タイトルから → で右の枝')
+  await click(p, 'アニメ')
+  await p.keyboard.press('ArrowDown')
+  eq(await h.selected(p), '漫画', '↓ は同じ側の下へ')
+  const leftTop = await p.evaluate(() => {
+    const nodes = [...document.querySelectorAll('.mind-node.depth-1.side-left')]
+    nodes.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)
+    return nodes[0].textContent.replace('−', '')
+  })
+  await click(p, leftTop)
+  await p.keyboard.press('ArrowUp')
+  eq(await h.selected(p), leftTop, '左側の一番上から ↑ しても右側には飛ばない')
+})
+
+test('左右の枝：タイトルの左側に重ねて離すと、左の枝になる', async (p) => {
+  await buildSimple(p, '今週', BRANCHES)
+  const node = p.locator('.mind-node', { hasText: /^家/ }).first()
+  const root = await p.locator('.mind-node.depth-0').boundingBox()
+  const b = await node.boundingBox()
+  await p.mouse.move(b.x + b.width / 2, b.y + b.height / 2)
+  await p.mouse.down()
+  await p.mouse.move(root.x + 12, root.y + root.height / 2, { steps: 12 })
+  await pause(p, 200)
+  await p.mouse.up()
+  await pause(p, 400)
+  eq(await sideOf(p, '家'), 'left', '左の枝になる')
+  eq(await sideOf(p, '掃除'), 'left', '中の項目も左')
+})
+
+test('左右の枝（ノートのテーマ）：左側でも線と下線がつながる', async (p) => {
+  await buildSimple(p, '今週', BRANCHES)
+  await openSettings(p)
+  await p.click('[data-look-id="note"]')
+  await pause(p, 400)
+  const fit = await p.evaluate(() => {
+    const node = [...document.querySelectorAll('.mind-node')].find((n) => n.textContent.startsWith('アニメ')).getBoundingClientRect()
+    return [...document.querySelectorAll('.react-flow__edge-path')].some((e) => {
+      const pt = e.getPointAtLength(e.getTotalLength()).matrixTransform(e.getScreenCTM())
+      return Math.abs(pt.x - node.left) < 3 && Math.abs(pt.y - node.bottom) < 2
+    })
+  })
+  eq(fit, true, '線の終わりが左下の角')
+  await p.click('[data-look-id="simple"]')
+})
+
 test('新しいマップ：読書 / シンプル、削除', async (p) => {
   await p.click('text=＋ シンプルマップ')
   await p.keyboard.type('考え')

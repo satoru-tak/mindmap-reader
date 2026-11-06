@@ -4,9 +4,9 @@ import '@xyflow/react/dist/style.css'
 import Canvas from './Canvas'
 import Sidebar from './Sidebar'
 import { DropZone, exportCurrent, openFilePicker, Toast } from './FileActions'
-import { useStore } from './store'
+import { layoutOf, useStore } from './store'
 import { clipsForPaste, getInternalClips, setInternalClip, toClip, toOutline } from './clipboard'
-import { MODE_LABEL, type MapMode } from './types'
+import { MODE_LABEL, type BranchLayout, type MapMode } from './types'
 import { filterPageInput } from './page'
 import './App.css'
 
@@ -108,6 +108,9 @@ function useKeyboard() {
       if (e.altKey) {
         if (key === 'ArrowUp') return run(() => s.moveSibling('up'))
         if (key === 'ArrowDown') return run(() => s.moveSibling('down'))
+        // 枝をタイトルの左側 / 右側へ（右だけのマップなら、左右に広げる形に切り替わる）
+        if (key === 'ArrowLeft') return run(() => s.setSide('left'))
+        if (key === 'ArrowRight') return run(() => s.setSide('right'))
         return
       }
 
@@ -201,6 +204,7 @@ function Toolbar() {
             </button>
           ))}
         </div>
+        <LayoutSwitch />
         <h1>{title || '無題'}</h1>
       </div>
       <div className="toolbar-actions">
@@ -239,6 +243,33 @@ function Toolbar() {
         </button>
       </div>
     </header>
+  )
+}
+
+const LAYOUTS: { value: BranchLayout; label: string; title: string }[] = [
+  { value: 'right', label: '右だけ', title: '枝を右側だけに伸ばす（上から下へ読む順になる）' },
+  { value: 'both', label: '左右', title: '枝を左右に伸ばす（量に合わせて自動で振り分け）' },
+]
+
+/** 枝の伸ばし方（右だけ ⇄ 左右）。マップごとに覚える */
+function LayoutSwitch() {
+  const layout = useStore((s) => (s.currentMapId && s.maps[s.currentMapId] ? layoutOf(s.maps[s.currentMapId]) : 'right'))
+  const s = useStore.getState()
+  return (
+    <div className="seg layout-switch" role="radiogroup" aria-label="枝の伸ばし方">
+      {LAYOUTS.map((l) => (
+        <button
+          key={l.value}
+          role="radio"
+          aria-checked={layout === l.value}
+          className={layout === l.value ? 'on' : ''}
+          title={l.title}
+          onClick={() => s.setLayout(l.value)}
+        >
+          {l.label}
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -358,7 +389,7 @@ function Help() {
         <h3>選択の移動</h3>
         <dl>
           <dt>← / →</dt>
-          <dd>まとめ側へ ／ 詳しい側へ（前にいた項目に戻る）</dd>
+          <dd>まとめ側へ ／ 詳しい側へ（前にいた項目に戻る）。左側の枝では向きが逆になる</dd>
           <dt>↑ / ↓</dt>
           <dd>同じ深さの上下へ（並びをまたぐ）</dd>
           <dt>{MOD}+↑ / ↓</dt>
@@ -376,8 +407,10 @@ function Help() {
         <dl>
           <dt>{ALT}+↑ / ↓</dt>
           <dd>並びの中で順番を入れ替え</dd>
+          <dt>{ALT}+← / →</dt>
+          <dd>枝をタイトルの左側 ／ 右側へ（左右に広げる形になる）</dd>
           <dt>ドラッグ</dt>
-          <dd>別の項目に重ねて離すと、その詳しい項目として移動</dd>
+          <dd>別の項目に重ねて離すと、その詳しい項目として移動。タイトルの左右どちらで離すかで、置く側も決まる</dd>
           <dt>/ ・ {MOD}+/</dt>
           <dd>折りたたみ・展開</dd>
           <dt>{MOD}+C / X / V</dt>

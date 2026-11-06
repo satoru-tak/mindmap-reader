@@ -13,6 +13,8 @@ export type MindFlowNode = Node<
     hiddenCount: number
     page?: string
     quote?: boolean
+    /** 1 = タイトルの右側、-1 = 左側 */
+    dir?: 1 | -1
   },
   'mind'
 >
@@ -30,7 +32,7 @@ function MindNodeView({ id, data, width, height }: NodeProps<MindFlowNode>) {
 
   return (
     <div
-      className={`mind-node depth-${Math.min(data.depth, 2)}${selected ? ' selected' : ''}${editing ? ' editing' : ''}${data.quote ? ' quote' : ''}${flashing ? ' flash' : ''} ${dropState}`}
+      className={`mind-node depth-${Math.min(data.depth, 2)}${selected ? ' selected' : ''}${editing ? ' editing' : ''}${data.quote ? ' quote' : ''}${flashing ? ' flash' : ''}${data.dir === -1 ? ' side-left' : ''} ${dropState}`}
       style={
         {
           width,
@@ -49,7 +51,10 @@ function MindNodeView({ id, data, width, height }: NodeProps<MindFlowNode>) {
         startEdit(id)
       }}
     >
-      <Handle type="target" position={Position.Left} className="mind-handle" isConnectable={false} />
+      {/* both sides get connection points; the edges pick the side they need */}
+      <Handle id="tl" type="target" position={Position.Left} className="mind-handle" isConnectable={false} />
+      <Handle id="tr" type="target" position={Position.Right} className="mind-handle" isConnectable={false} />
+      <Handle id="sl" type="source" position={Position.Left} className="mind-handle" isConnectable={false} />
       {dropState === 'drop-target' && <span className="drop-badge">ここに移動</span>}
       <div className="mind-body">
       {data.quote && <span className="quote-mark" aria-label="引用">“</span>}
@@ -83,7 +88,7 @@ function MindNodeView({ id, data, width, height }: NodeProps<MindFlowNode>) {
           {data.collapsed ? data.hiddenCount : '−'}
         </button>
       )}
-      <Handle type="source" position={Position.Right} className="mind-handle" isConnectable={false} />
+      <Handle id="sr" type="source" position={Position.Right} className="mind-handle" isConnectable={false} />
     </div>
   )
 }

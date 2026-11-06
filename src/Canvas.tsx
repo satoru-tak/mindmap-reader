@@ -17,9 +17,10 @@ import {
   getStraightPath,
   type OnNodeDrag,
 } from '@xyflow/react'
-import { isDescendant, setLayoutCache, useStore, type DragState, type NodePos } from './store'
+import { isDescendant, layoutOf, setLayoutCache, useStore, type DragState, type NodePos } from './store'
 import { H_GAP, layoutTree, V_GAP } from './layout'
 import MindNode, { type MindFlowNode } from './MindNode'
+import SidePicker from './SidePicker'
 import { branchColor, useTheme } from './theme'
 import type { NodeRecord } from './types'
 
@@ -27,7 +28,8 @@ import type { NodeRecord } from './types'
 function GhostNode({ data, width, height }: { data: { text: string }; width?: number; height?: number }) {
   return (
     <div className="ghost-node" style={{ width, height }}>
-      <Handle type="target" position={Position.Left} className="mind-handle" isConnectable={false} />
+      <Handle id="tl" type="target" position={Position.Left} className="mind-handle" isConnectable={false} />
+      <Handle id="tr" type="target" position={Position.Right} className="mind-handle" isConnectable={false} />
       {data.text || '（空）'}
     </div>
   )
@@ -39,7 +41,7 @@ const nodeTypes = { mind: MindNode, ghost: GhostNode }
  * 「下線」の形のテーマ用の線。親からの線と、子の下線を1本の線として描く。
  * 下線を CSS の枠線で描くと、拡大率によって線と1px ほどずれるため。
  */
-type UnderlineData = { shape: 'default' | 'smoothstep' | 'straight' | 'step'; underline: number }
+type UnderlineData = { shape: 'default' | 'smoothstep' | 'straight' | 'step'; underline: number; dir: 1 | -1 }
 function UnderlineEdge(props: EdgeProps) {
   const { sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style, markerEnd } = props
   const data = props.data as UnderlineData
@@ -50,7 +52,7 @@ function UnderlineEdge(props: EdgeProps) {
       : data.shape === 'smoothstep' || data.shape === 'step'
         ? getSmoothStepPath({ ...args, borderRadius: data.shape === 'step' ? 0 : 5 })
         : getBezierPath(args)
-  return <BaseEdge path={`${path} L ${targetX + data.underline + 1} ${targetY}`} style={style} markerEnd={markerEnd} />
+  return <BaseEdge path={`${path} L ${targetX + data.dir * (data.underline + 1)} ${targetY}`} style={style} markerEnd={markerEnd} />
 }
 const edgeTypes = { underline: UnderlineEdge }
 
@@ -98,9 +100,14 @@ export default function Canvas() {
   const { flowNodes, edges } = useMemo(() => {
     if (!map) return { flowNodes: [] as MindFlowNode[], edges: [] as Edge[] }
     const showReading = map.mode === 'reading'
-    const laid = layoutTree(map.nodes, map.rootId, editingText, showReading, look.node === 'underline' ? 'bottom' : 'center')
+    const laid = layoutTree(map.nodes, map.rootId, {
+      editing: editingText,
+      showReading,
+      anchor: look.node === 'underline' ? 'bottom' : 'center',
+      both: layoutOf(map) === 'both',
+    })
     const cache = new Map<string, NodePos>()
-    for (const l of laid) cache.set(l.id, { x: l.x, y: l.y, height: l.height, depth: l.depth })
+    for (const l of laid) cache.set(l.id, { x: l.x, y: l.y, height: l.height, depth: l.depth, dir: l.dir })
     setLayoutCache(cache)
     const byId = new Map(laid.map((l) => [l.id, l]))
     const flowNodes: MindFlowNode[] = laid.map((l) => {
@@ -121,6 +128,7 @@ export default function Canvas() {
           hiddenCount: n.collapsed ? countDescendants(map.nodes, l.id) : 0,
           page: showReading && l.depth > 0 ? n.page : undefined,
           quote: showReading && l.depth > 0 && n.kind === 'quote',
+          dir: l.dir,
         },
       }
     })
@@ -132,8 +140,11 @@ export default function Canvas() {
           id: `${n.parentId}-${l.id}`,
           source: n.parentId!,
           target: l.id,
+          // left side: leave the parent on its left, enter the child on its right
+          sourceHandle: l.dir === -1 ? 'sl' : 'sr',
+          targetHandle: l.dir === -1 ? 'tr' : 'tl',
           type: look.node === 'underline' ? 'underline' : look.edge.shape,
-          data: { shape: look.edge.shape, underline: l.width },
+          data: { shape: look.edge.shape, underline: l.width, dir: l.dir },
           style: {
             stroke: branchColor(look, theme, byId.get(l.id)!.branch),
             strokeWidth: l.depth === 1 ? look.edge.width1 : look.edge.width2,
@@ -190,7 +201,9 @@ export default function Canvas() {
     const tn = map.nodes[target.id]
     const kids = tn.collapsed ? [] : tn.children.filter((c) => c !== drag.draggingId)
     const last = kids.length ? flowNodes.find((f) => f.id === kids[kids.length - 1]) : undefined
-    const gx = target.position.x + (target.width ?? 0) + H_GAP
+    // left side (or dropping on the title's left): the ghost grows to the left
+    const toLeft = target.id === map.rootId ? drag.side === 'left' : target.data.dir === -1
+    const gx = toLeft ? target.position.x - H_GAP - (dragged.width ?? 0) : target.position.x + (target.width ?? 0) + H_GAP
     const gy = last
       ? last.position.y + (last.height ?? 0) + V_GAP
       : target.position.y + ((target.height ?? 0) - (dragged.height ?? 0)) / 2
@@ -208,6 +221,8 @@ export default function Canvas() {
       id: 'drop-preview',
       source: target.id,
       target: '__ghost',
+      sourceHandle: toLeft ? 'sl' : 'sr',
+      targetHandle: toLeft ? 'tr' : 'tl',
       type: look.edge.shape,
       animated: !reducedMotion,
       style: { stroke: ACCENT, strokeWidth: 2.5, strokeDasharray: '6 4' },
@@ -275,9 +290,12 @@ export default function Canvas() {
       const w = dragged.width ?? 0
       const h = dragged.height ?? 0
       const leftEdge = { x: dragged.position.x + 6, y: dragged.position.y + h / 2 }
+      const rightEdge = { x: dragged.position.x + w - 6, y: dragged.position.y + h / 2 }
 
       let best: MindFlowNode | undefined =
-        (pointer && candidates.find((f) => contains(f, pointer))) || candidates.find((f) => contains(f, leftEdge))
+        (pointer && candidates.find((f) => contains(f, pointer))) ||
+        candidates.find((f) => contains(f, leftEdge)) ||
+        candidates.find((f) => contains(f, rightEdge))
       if (!best) {
         const box = { x: dragged.position.x, y: dragged.position.y, w, h }
         let bestArea = 0
@@ -291,8 +309,18 @@ export default function Canvas() {
       }
       if (!best) return base
       if (isDescendant(map.nodes, dragged.id, best.id)) return { ...base, targetId: best.id, blocked: 'descendant' }
-      if (map.nodes[dragged.id].parentId === best.id) return { ...base, targetId: best.id, blocked: 'same-parent' }
-      return { ...base, targetId: best.id }
+      // dropping on the title in a left-and-right map: the side is where you let go
+      let side: DragState['side']
+      if (best.id === map.rootId && layoutOf(map) === 'both') {
+        const cx = best.position.x + (best.width ?? 0) / 2
+        const px = pointer?.x ?? dragged.position.x + w / 2
+        side = px < cx ? 'left' : 'right'
+      }
+      if (map.nodes[dragged.id].parentId === best.id) {
+        const sideChanges = side && side !== (dragged.data.dir === -1 ? 'left' : 'right')
+        if (!sideChanges) return { ...base, targetId: best.id, blocked: 'same-parent' }
+      }
+      return { ...base, targetId: best.id, side }
     },
     [flowNodes, map],
   )
@@ -314,7 +342,8 @@ export default function Canvas() {
     (e, dragged) => {
       const next = findTarget(dragged, pointerOf(e))
       const cur = useStore.getState().drag
-      if (!cur || cur.targetId !== next.targetId || cur.blocked !== next.blocked) useStore.getState().setDrag(next)
+      if (!cur || cur.targetId !== next.targetId || cur.blocked !== next.blocked || cur.side !== next.side)
+        useStore.getState().setDrag(next)
     },
     [findTarget, pointerOf],
   )
@@ -324,7 +353,7 @@ export default function Canvas() {
     (e, dragged) => {
       const result = findTarget(dragged, pointerOf(e))
       useStore.getState().setDrag(null)
-      if (result.targetId && !result.blocked) useStore.getState().moveNode(dragged.id, result.targetId)
+      if (result.targetId && !result.blocked) useStore.getState().moveNode(dragged.id, result.targetId, result.side)
       setNodes(flowNodes)
     },
     [findTarget, pointerOf, setNodes, flowNodes],
@@ -365,6 +394,7 @@ export default function Canvas() {
         <Controls showInteractive={false} position="bottom-right" />
       </ReactFlow>
       <DragHint />
+      <SidePicker />
     </div>
   )
 }

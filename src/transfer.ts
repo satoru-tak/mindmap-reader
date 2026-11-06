@@ -71,6 +71,7 @@ function sanitizeMap(raw: unknown): MindMap | null {
     }
     if (typeof n.page === 'string' && n.page) node.page = n.page
     if (n.kind === 'quote') node.kind = 'quote'
+    if (parentId === raw.rootId && (n.side === 'left' || n.side === 'right')) node.side = n.side
     nodes[id] = node
     const kids = Array.isArray(n.children) ? n.children : []
     for (const k of kids) {
@@ -90,6 +91,7 @@ function sanitizeMap(raw: unknown): MindMap | null {
     mode,
     rootId: raw.rootId,
     nodes,
+    ...(raw.layout === 'right' || raw.layout === 'both' ? { layout: raw.layout } : {}),
     createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : now,
     updatedAt: now,
   }

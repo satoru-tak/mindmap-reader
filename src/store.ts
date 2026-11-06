@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { MapMode, MindMap, MindNodeData, NodeRecord } from './types'
+import { defaultLayout, type BranchLayout, type MapMode, type MindMap, type MindNodeData, type NodeRecord, type Side } from './types'
 import { getPreloaded, saveState } from './storage'
 import { normalizePage } from './page'
 import { toClip, type Clip } from './clipboard'
@@ -59,6 +59,8 @@ export interface DragState {
   targetId: string | null
   /** why the current target can't be used */
   blocked: 'descendant' | 'same-parent' | null
+  /** タイトルに落とすとき：左右どちらに置くか（左右に広げるマップのみ） */
+  side?: Side
 }
 
 /** Positions from the last auto layout, used for visual (spatial) keyboard navigation. */
@@ -67,7 +69,19 @@ export interface NodePos {
   y: number
   height: number
   depth: number
+  /** 1 = タイトルの右側、-1 = 左側 */
+  dir: 1 | -1
 }
+
+/** the branch right under the title that contains this node (null for the title) */
+export function topBranch(nodes: NodeRecord, rootId: string, id: string): string | null {
+  if (id === rootId || !nodes[id]) return null
+  let cur = id
+  while (nodes[cur].parentId && nodes[cur].parentId !== rootId) cur = nodes[cur].parentId!
+  return cur
+}
+
+export const layoutOf = (map: MindMap): BranchLayout => map.layout ?? defaultLayout(map.mode)
 let layoutCache = new Map<string, NodePos>()
 export const setLayoutCache = (m: Map<string, NodePos>) => {
   layoutCache = m
@@ -123,7 +137,11 @@ interface State {
   retargetNew: (as: 'child' | 'sibling') => void
   deleteNode: (id?: string) => void
   toggleCollapse: (id?: string) => void
-  moveNode: (id: string, newParentId: string) => void
+  moveNode: (id: string, newParentId: string, side?: Side) => void
+  /** 枝の伸ばし方を切り替える（右だけ ⇄ 左右） */
+  setLayout: (layout: BranchLayout) => void
+  /** 選んだ項目を含む枝を、タイトルの左 / 右へ（null＝自動に戻す） */
+  setSide: (side: Side | null) => void
   /** jump=true (Shift+矢印): 兄弟の端 / 中心 / 枝の先端へ一気に移動 */
   /**
    * none : ← 親 / → 子 / ↑↓ 同じ階層の上下
@@ -529,10 +547,19 @@ export const useStore = create<State>((set, get) => {
       })
     },
 
-    moveNode: (id, newParentId) => {
+    moveNode: (id, newParentId, side) => {
       const map = current()
       if (!map || id === map.rootId) return
-      if (map.nodes[id].parentId === newParentId) return
+      const toTitle = newParentId === map.rootId
+      if (map.nodes[id].parentId === newParentId) {
+        // dropped back onto the title on the other side: only the side changes
+        if (toTitle && side && side !== (layoutCache.get(id)?.dir === -1 ? 'left' : 'right'))
+          mutate((nodes) => {
+            nodes[id].side = side
+            return { selectedId: id }
+          })
+        return
+      }
       if (isDescendant(map.nodes, id, newParentId)) return // can't drop into own subtree
       mutate((nodes) => {
         const oldParent = nodes[nodes[id].parentId!]
@@ -540,7 +567,32 @@ export const useStore = create<State>((set, get) => {
         nodes[id].parentId = newParentId
         nodes[newParentId].children.push(id)
         nodes[newParentId].collapsed = false
+        // the side only means something right under the title
+        if (toTitle && side) nodes[id].side = side
+        else delete nodes[id].side
         return { selectedId: id }
+      })
+    },
+
+    setLayout: (layout) => {
+      const { maps, currentMapId } = get()
+      if (!currentMapId) return
+      const map = maps[currentMapId]
+      if (layoutOf(map) === layout) return
+      set({ maps: { ...maps, [currentMapId]: { ...map, layout, updatedAt: Date.now() } } })
+    },
+
+    setSide: (side) => {
+      const map = current()
+      const sel = get().selectedId
+      if (!map || !sel) return
+      const top = topBranch(map.nodes, map.rootId, sel)
+      if (!top) return
+      if (side && layoutOf(map) === 'right') get().setLayout('both')
+      if ((map.nodes[top].side ?? null) === side) return
+      mutate((nodes) => {
+        if (side) nodes[top].side = side
+        else delete nodes[top].side
       })
     },
 
@@ -559,6 +611,27 @@ export const useStore = create<State>((set, get) => {
         return remembered && kids.includes(remembered) ? remembered : kids[0]
       }
       let next: string | undefined
+      const dirOf = (id: string) => layoutCache.get(id)?.dir ?? 1
+
+      // the title: → goes to the right side, ← to the left side (the one you came from, else the top one)
+      if (sel === map.rootId && (dir === 'left' || dir === 'right')) {
+        const want = dir === 'right' ? 1 : -1
+        const kids = visibleKids(sel).filter((k) => dirOf(k) === want)
+        if (!kids.length) return
+        const remembered = trail.get(sel)
+        next = remembered && kids.includes(remembered) ? remembered : kids[0]
+        if (mod === 'shift') {
+          let cur: string | undefined = next
+          while (cur) {
+            next = cur
+            cur = nextChild(cur)
+          }
+        }
+        if (next && next !== sel) set({ selectedId: next })
+        return
+      }
+      // on the left side the tree is mirrored: ← goes deeper, → goes back toward the title
+      if (dirOf(sel) === -1 && (dir === 'left' || dir === 'right')) dir = dir === 'left' ? 'right' : 'left'
 
       if (dir === 'left') {
         if (mod === 'shift') {
@@ -602,7 +675,7 @@ export const useStore = create<State>((set, get) => {
           let best: string | undefined
           let bestDist = Infinity
           for (const [id, p] of layoutCache) {
-            if (id === sel || p.depth !== me.depth) continue
+            if (id === sel || p.depth !== me.depth || p.dir !== me.dir) continue
             const dy = p.y + p.height / 2 - myCy
             if ((dir === 'up' && dy < -1) || (dir === 'down' && dy > 1)) {
               if (Math.abs(dy) < bestDist) {
