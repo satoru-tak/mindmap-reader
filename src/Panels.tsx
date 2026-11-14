@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useStore } from './store'
 
+const MOD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl'
+
 /* ============================================================
  * キャンバスの上に重ねて出す小さなパネル：
  *  - 検索バー（⌘F）
@@ -96,7 +98,7 @@ export function MemoPanel() {
           }}
           className="memo-close"
           aria-label="メモを閉じる"
-          title="閉じる (Esc / M)"
+          title={`閉じる (Esc / ${MOD}+Enter)`}
         >
           閉じる
         </button>
@@ -109,14 +111,15 @@ export function MemoPanel() {
         onBlur={save}
         onKeyDown={(e) => {
           if (e.nativeEvent.isComposing || e.keyCode === 229) return
-          if (e.key === 'Escape') {
+          // Esc、または ⌘+Enter（Windows は Ctrl+Enter）で保存して閉じる
+          if (e.key === 'Escape' || (e.key === 'Enter' && (e.metaKey || e.ctrlKey))) {
             e.preventDefault()
             save()
             setMemoOpen(false)
           }
         }}
       />
-      <div className="memo-foot">自動で保存されます ・ Esc でも閉じられます</div>
+      <div className="memo-foot">自動で保存されます ・ Esc か {MOD}+Enter でも閉じられます</div>
     </aside>
   )
 }

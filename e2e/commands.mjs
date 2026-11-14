@@ -607,6 +607,19 @@ test('メモ：「閉じる」ボタン・もう一度 M で閉じる（書い�
   eq(await p.locator('.memo-panel').count(), 0, '入力欄の外なら、もう一度 M で閉じる')
 })
 
+testMod('メモ：書いているときに ⌘/Ctrl+Enter で保存して閉じる', async (p, mod) => {
+  await click(p, '要点')
+  await p.keyboard.press('m')
+  await p.keyboard.type('1行目')
+  await p.keyboard.press('Enter')
+  await p.keyboard.type('2行目')
+  eq(await p.locator('.memo-panel').count(), 1, 'Enter だけなら改行（閉じない）')
+  await p.keyboard.press(`${mod}+Enter`)
+  eq(await p.locator('.memo-panel').count(), 0, '閉じる')
+  eq((await h.node(p, '要点')).note, '1行目\n2行目', '保存される')
+  eq(await h.kids(p, '第1章'), ['要点', '引用', '気づき'], 'マップの「まとめる」は動かない')
+})
+
 test('メモ：別の項目を選ぶと、その項目のメモに切り替わる（前のメモは保存）', async (p) => {
   await click(p, '要点')
   await p.click('text=メモ')
