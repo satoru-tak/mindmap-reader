@@ -593,6 +593,20 @@ test('メモ：M で開いて書き、Esc で閉じると保存。印が付き�
   eq((await h.node(p, '要点')).note, undefined, '元に戻すで消える')
 })
 
+test('メモ：「閉じる」ボタン・もう一度 M で閉じる（書いた内容は保存）', async (p) => {
+  await click(p, '要点')
+  await p.keyboard.press('m')
+  await p.keyboard.type('ボタンで閉じる')
+  await p.click('.memo-panel >> text=閉じる')
+  eq(await p.locator('.memo-panel').count(), 0, '「閉じる」で閉じる')
+  eq((await h.node(p, '要点')).note, 'ボタンで閉じる', '保存される')
+  await p.keyboard.press('m')
+  eq(await p.locator('.memo-panel').count(), 1, 'M で開く')
+  await p.locator('.memo-panel textarea').evaluate((el) => el.blur())
+  await p.keyboard.press('m')
+  eq(await p.locator('.memo-panel').count(), 0, '入力欄の外なら、もう一度 M で閉じる')
+})
+
 test('メモ：別の項目を選ぶと、その項目のメモに切り替わる（前のメモは保存）', async (p) => {
   await click(p, '要点')
   await p.click('text=メモ')

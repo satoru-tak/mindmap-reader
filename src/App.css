@@ -1236,6 +1236,14 @@
   background: var(--hover);
   color: var(--text);
 }
+.memo-head .memo-close {
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  padding: 3px 10px;
+  font-size: 12px;
+}
 .memo-panel textarea {
   min-height: 160px;
   max-height: 50vh;

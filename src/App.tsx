@@ -126,7 +126,7 @@ function useKeyboard() {
         Backspace: () => s.deleteNode(),
         '/': () => s.toggleCollapse(),
         q: () => reading && s.toggleQuote(),
-        m: () => s.setMemoOpen(true),
+        m: () => s.setMemoOpen(!s.memoOpen),
         f: () => s.toggleFocus(),
         p: () => reading && focusPageInput(),
         ArrowLeft: () => s.navigate('left', nav),
@@ -407,7 +407,7 @@ function Help() {
           <dt>Delete</dt>
           <dd>削除</dd>
           <dt>M</dt>
-          <dd>選んだ項目のメモを開く（メモがある項目には ≡ の印）</dd>
+          <dd>選んだ項目のメモを開く・閉じる（メモがある項目には ≡ の印）</dd>
         </dl>
         <h3>選択の移動</h3>
         <dl>

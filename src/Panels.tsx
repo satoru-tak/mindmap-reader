@@ -94,10 +94,11 @@ export function MemoPanel() {
             save()
             setMemoOpen(false)
           }}
+          className="memo-close"
           aria-label="メモを閉じる"
-          title="閉じる (Esc)"
+          title="閉じる (Esc / M)"
         >
-          ×
+          閉じる
         </button>
       </div>
       <textarea
@@ -115,7 +116,7 @@ export function MemoPanel() {
           }
         }}
       />
-      <div className="memo-foot">自動で保存されます</div>
+      <div className="memo-foot">自動で保存されます ・ Esc でも閉じられます</div>
     </aside>
   )
 }
