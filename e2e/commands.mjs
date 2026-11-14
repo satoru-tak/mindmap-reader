@@ -1126,6 +1126,21 @@ test('表示の操作（右下）：中心へ・全体表示・縮小・拡大�
   eq(await h.selected(p), '本のタイトル', '中心へでタイトルを選ぶ')
 })
 
+test('⚙ 設定：編集ボタンを隠す / 表示する（再読み込みしても残る）', async (p) => {
+  eq(await p.locator('.toolbar >> text=→ 詳しく').count(), 1, '最初は表示')
+  await openSettings(p)
+  await p.click('.edit-seg >> text=隠す')
+  for (const t of ['→ 詳しく', '↓ 並べて', 'まとめる', '編集', '削除'])
+    eq(await p.locator('.toolbar-actions button', { hasText: t }).count(), 0, `${t} が隠れる`)
+  for (const t of ['メモ', '集中', '検索']) eq(await p.locator('.toolbar-actions button', { hasText: t }).count(), 1, `${t} は残る`)
+  await p.reload()
+  await p.waitForSelector('.mind-node')
+  eq(await p.locator('.toolbar >> text=→ 詳しく').count(), 0, '再読み込みしても隠れたまま')
+  await openSettings(p)
+  await p.click('.edit-seg >> text=表示する')
+  eq(await p.locator('.toolbar >> text=→ 詳しく').count(), 1, '表示に戻せる')
+})
+
 test('新しいマップ：読書 / シンプル、削除', async (p) => {
   await p.click('text=＋ シンプルマップ')
   await p.keyboard.type('考え')

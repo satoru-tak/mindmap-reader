@@ -5,6 +5,7 @@ import Canvas from './Canvas'
 import Sidebar from './Sidebar'
 import { DropZone, exportCurrent, openFilePicker, Toast } from './FileActions'
 import { layoutOf, useStore } from './store'
+import { useShowEditButtons } from './prefs'
 import { clipsForPaste, getInternalClips, setInternalClip, toClip, toOutline } from './clipboard'
 import { MODE_LABEL, type BranchLayout, type MapMode } from './types'
 import { filterPageInput } from './page'
@@ -187,6 +188,7 @@ function Toolbar() {
   const canUndo = useStore((s) => s.past.length > 0)
   const canRedo = useStore((s) => s.future.length > 0)
   const memoOpen = useStore((s) => s.memoOpen)
+  const showEdit = useShowEditButtons()
   const focusOn = useStore((s) => !!s.focusId)
   const s = useStore.getState()
 
@@ -214,25 +216,30 @@ function Toolbar() {
         <h1>{title || '無題'}</h1>
       </div>
       <div className="toolbar-actions">
-        <button disabled={!hasSel} onClick={() => s.addChild()} title="この項目を掘り下げて、詳しい項目を追加 (Tab)">
-          → 詳しく
-        </button>
-        <button disabled={!hasSel} onClick={() => s.addSibling()} title="同じ並びに項目を追加 (Enter ／ 上に追加は Shift+Enter)">
-          ↓ 並べて
-        </button>
-        <button
-          disabled={!hasSel || isRootSel}
-          onClick={() => s.insertParent()}
-          title={`選んだ項目の上に、まとめの見出しを追加 (${MOD}+Enter)`}
-        >
-          まとめる
-        </button>
-        <button disabled={!hasSel} onClick={() => s.selectedId && s.startEdit(s.selectedId)} title="編集 (Space / F2)">
-          編集
-        </button>
-        <button disabled={!hasSel || isRootSel} onClick={() => s.deleteNode()} title="削除 (Delete)">
-          削除
-        </button>
+        {showEdit && (
+          <>
+            <button disabled={!hasSel} onClick={() => s.addChild()} title="この項目を掘り下げて、詳しい項目を追加 (Tab)">
+              → 詳しく
+            </button>
+            <button disabled={!hasSel} onClick={() => s.addSibling()} title="同じ並びに項目を追加 (Enter ／ 上に追加は Shift+Enter)">
+              ↓ 並べて
+            </button>
+            <button
+              disabled={!hasSel || isRootSel}
+              onClick={() => s.insertParent()}
+              title={`選んだ項目の上に、まとめの見出しを追加 (${MOD}+Enter)`}
+            >
+              まとめる
+            </button>
+            <button disabled={!hasSel} onClick={() => s.selectedId && s.startEdit(s.selectedId)} title="編集 (Space / F2)">
+              編集
+            </button>
+            <button disabled={!hasSel || isRootSel} onClick={() => s.deleteNode()} title="削除 (Delete)">
+              削除
+            </button>
+            <span className="sep" />
+          </>
+        )}
         <button disabled={!hasSel} onClick={() => s.setMemoOpen(!memoOpen)} className={memoOpen ? 'on' : ''} title="選んだ項目のメモ (M)">
           メモ
         </button>

@@ -4,6 +4,7 @@ import { useStore } from './store'
 import { exportAll, FileMenu } from './FileActions'
 import { BackupReminder } from './Panels'
 import { setDefaultZoom, useDefaultZoom, ZOOM_CHOICES } from './viewMemory'
+import { setShowEditButtons, useShowEditButtons } from './prefs'
 import { LOOKS, setLook, setThemePref, useTheme, type ThemePref } from './theme'
 
 const fmt = (t: number) =>
@@ -166,6 +167,7 @@ function Settings({ open, onOpen }: { open: boolean; onOpen: () => void }) {
         <LookPicker />
         <ThemeSwitch />
         <ZoomSwitch />
+        <EditButtonsSwitch />
       </div>
     </div>
   )
@@ -220,6 +222,33 @@ function ZoomSwitch() {
             onClick={() => setDefaultZoom(z)}
           >
             {Math.round(z * 100)}%
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** ツールバーの編集ボタン（→ 詳しく・↓ 並べて・まとめる・編集・削除）を出すか */
+function EditButtonsSwitch() {
+  const show = useShowEditButtons()
+  return (
+    <div className="theme-switch">
+      <div className="file-menu-title">編集ボタン（詳しく・並べて など）</div>
+      <div className="seg edit-seg" role="radiogroup" aria-label="編集ボタン">
+        {[
+          { v: true, label: '表示する' },
+          { v: false, label: '隠す' },
+        ].map((o) => (
+          <button
+            key={o.label}
+            role="radio"
+            aria-checked={show === o.v}
+            className={show === o.v ? 'on' : ''}
+            title={o.v ? 'ツールバーに編集ボタンを出す' : 'キーボードで操作する人向け：ツールバーをすっきりさせる'}
+            onClick={() => setShowEditButtons(o.v)}
+          >
+            {o.label}
           </button>
         ))}
       </div>

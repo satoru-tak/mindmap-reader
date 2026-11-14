@@ -1403,11 +1403,13 @@
   font-size: 11.5px;
   font-variant-numeric: tabular-nums;
 }
-.zoom-seg {
+.zoom-seg,
+.edit-seg {
   display: flex;
   margin: 0 4px;
 }
-.zoom-seg button {
+.zoom-seg button,
+.edit-seg button {
   flex: 1;
   padding: 4px 0;
   font-size: 11.5px;
