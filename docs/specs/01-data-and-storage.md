@@ -44,7 +44,6 @@
 |---|---|
 | `mindmap-reader:theme` | 画面の明るさ（light / dark / なし＝自動） |
 | `mindmap-reader:look` | 見た目のテーマ |
-| `mindmap-reader:settings-open` | 「⚙ 設定」を開いているか |
 | `mindmap-reader:help` | 操作方法を開いているか |
 | `mindmap-reader:last-backup` | 最後に「すべてバックアップ」した日時 |
 | `mindmap-reader:backup-snooze` | バックアップのお知らせを次に出してよい日時 |

@@ -70,7 +70,11 @@ const click = (p, text) => p.locator('.mind-node', { hasText: new RegExp(`^${tex
 const pause = (p, ms = 120) => p.waitForTimeout(ms)
 /** サイドバーの「⚙ 設定」を開く（ファイル・テーマ・明るさ） */
 const openSettings = async (p) => {
-  if ((await p.locator('.settings-toggle').getAttribute('aria-expanded')) !== 'true') await p.click('.settings-toggle')
+  if (await p.locator('.settings-toggle').count()) await p.click('.settings-toggle')
+}
+/** 設定を閉じてマップ一覧に戻る */
+const closeSettings = async (p) => {
+  if (await p.locator('.settings-back').count()) await p.click('.settings-back')
 }
 
 // ---------- tiny assertion lib ----------
@@ -787,22 +791,30 @@ test('見た目のテーマ：切り替え・形・再読み込み後も残る',
   await p.reload()
   await p.waitForSelector('.mind-node')
   eq((await root()).look, 'note', '再読み込み後も残る')
-  eq(await p.locator('.settings-toggle').getAttribute('aria-expanded'), 'true', '設定を開いたままにしたことも残る')
+  await openSettings(p)
   eq(await p.locator('.look-item.on').getAttribute('data-look-id'), 'note', '一覧でも選択中')
   await p.click('[data-look-id="simple"]')
   eq(await radius(), '8px', 'シンプルに戻る')
 })
 
-test('⚙ 設定：最初は閉じていて、開くとファイル・テーマ・明るさが出る', async (p) => {
-  eq(await p.locator('.settings-toggle').getAttribute('aria-expanded'), 'false', '最初は閉じている')
-  eq(await p.locator('.theme-seg').isVisible(), false, '明るさは隠れている')
-  eq(await p.locator('text=すべてバックアップ').isVisible(), false, 'ファイルも隠れている')
+test('⚙ 設定：開くとサイドバーは設定だけ（一覧は隠れる）、「← マップ一覧に戻る」で戻る', async (p) => {
+  await p.setViewportSize({ width: 1280, height: 720 })
+  eq(await p.locator('.theme-seg').isVisible(), false, '最初は閉じている')
   await p.click('.settings-toggle')
   eq(await p.locator('.theme-seg').isVisible(), true, '明るさが出る')
   eq(await p.locator('[data-look-id="note"]').isVisible(), true, 'テーマが出る')
   eq(await p.locator('text=すべてバックアップ').isVisible(), true, 'ファイルが出る')
+  eq(await p.locator('.map-list').isVisible(), false, 'マップ一覧は隠れる')
+  eq(await p.locator('text=＋ 読書マップ').isVisible(), false, '新規作成のボタンも隠れる')
+  const sb = await p.evaluate(() => { const s = document.querySelector('.sidebar'); return s.scrollHeight <= s.clientHeight })
+  eq(sb, true, 'サイドバーにスクロールバーが出ない')
+  await p.click('text=← マップ一覧に戻る')
+  eq(await p.locator('.map-list').isVisible(), true, '一覧に戻る')
+  eq(await p.locator('.theme-seg').isVisible(), false, '設定は閉じる')
   await p.click('.settings-toggle')
-  eq(await p.locator('.theme-seg').isVisible(), false, 'もう一度押すと閉じる')
+  await p.reload()
+  await p.waitForSelector('.mind-node')
+  eq(await p.locator('.map-list').isVisible(), true, '開いたままにしたことは覚えない（次は一覧から）')
 })
 
 test('⚙ 設定を閉じると、マップ一覧を広く使える（高さ720pxでマップ8個以上）', async (p) => {
@@ -1081,6 +1093,7 @@ test('開いたときの表示：切り替えて戻ると、前回の場所・�
 test('開いたときの表示：「最初の倍率」を80%にすると、新しいマップは80%で開く', async (p) => {
   await openSettings(p)
   await p.click('.zoom-seg >> text=80%')
+  await closeSettings(p)
   await p.click('text=＋ シンプルマップ')
   await p.keyboard.type('新しい')
   await p.keyboard.press('Enter')

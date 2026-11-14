@@ -17,19 +17,31 @@ export default function Sidebar() {
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const list = Object.values(maps).sort((a, b) => b.updatedAt - a.updatedAt)
   const tip = useTitleTip()
+  /** 設定を開いているあいだは、サイドバーに設定だけを出す（docs/specs/07-features.md） */
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   return (
     <>
     {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
     <nav className={`sidebar${sidebarOpen ? ' open' : ''}`}>
       <div className="brand">Mindmap Reader</div>
-      <div className="new-buttons">
+      {settingsOpen && (
+        <div className="settings-head">
+          <button className="settings-back" onClick={() => setSettingsOpen(false)}>
+            ← マップ一覧に戻る
+          </button>
+          <div className="settings-title">
+            <span aria-hidden>⚙</span> 設定
+          </div>
+        </div>
+      )}
+      <div className="new-buttons" hidden={settingsOpen}>
         <button className="primary" onClick={() => createMap('reading')}>
           ＋ 読書マップ
         </button>
         <button onClick={() => createMap('free')}>＋ シンプルマップ</button>
       </div>
-      <ul className="map-list">
+      <ul className="map-list" hidden={settingsOpen}>
         {list.map((m) => (
           <li
             key={m.id}
@@ -60,8 +72,8 @@ export default function Sidebar() {
         ))}
       </ul>
       {tip.node}
-      <BackupReminder onBackup={exportAll} />
-      <Settings />
+      {!settingsOpen && <BackupReminder onBackup={exportAll} />}
+      <Settings open={settingsOpen} onOpen={() => setSettingsOpen(true)} />
     </nav>
     </>
   )
@@ -127,45 +139,28 @@ function LookPicker() {
   )
 }
 
-const SETTINGS_KEY = 'mindmap-reader:settings-open'
-function readOpen() {
-  try {
-    return localStorage.getItem(SETTINGS_KEY) === '1'
-  } catch {
-    return false
-  }
-}
-
 /**
- * ファイル・テーマ・明るさを「⚙ 設定」1つにまとめる。ふだんは閉じておき、マップ一覧を広く使う。
+ * ファイル・テーマ・明るさ・倍率を「⚙ 設定」1つにまとめる。ふだんは閉じておき、マップ一覧を広く使う。
+ * 開くと、サイドバーには設定だけを出す（一覧は隠す）。
  * 閉じていても中身は消さない（⌘O などのキー操作がファイル選択を使うため）。
  */
-function Settings() {
-  const [open, setOpen] = useState(readOpen)
-  const toggle = () => {
-    setOpen((o) => {
-      try {
-        localStorage.setItem(SETTINGS_KEY, o ? '0' : '1')
-      } catch {
-        /* ignore */
-      }
-      return !o
-    })
-  }
+function Settings({ open, onOpen }: { open: boolean; onOpen: () => void }) {
   return (
-    <div className="settings">
-      <button className="settings-toggle" aria-expanded={open} aria-controls="settings-body" onClick={toggle}>
-        <span className="settings-icon" aria-hidden>
-          ⚙
-        </span>
-        <span className="settings-label">
-          設定
-          <span className="settings-sub">ファイル・見た目・倍率</span>
-        </span>
-        <span className="settings-chev" aria-hidden>
-          {open ? '▾' : '▸'}
-        </span>
-      </button>
+    <div className={`settings${open ? ' open' : ''}`}>
+      {!open && (
+        <button className="settings-toggle" aria-expanded={false} aria-controls="settings-body" onClick={onOpen}>
+          <span className="settings-icon" aria-hidden>
+            ⚙
+          </span>
+          <span className="settings-label">
+            設定
+            <span className="settings-sub">ファイル・見た目・倍率</span>
+          </span>
+          <span className="settings-chev" aria-hidden>
+            ▸
+          </span>
+        </button>
+      )}
       <div id="settings-body" className="settings-body" hidden={!open}>
         <FileMenu />
         <LookPicker />

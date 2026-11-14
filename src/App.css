@@ -990,8 +990,43 @@
   flex-direction: column;
   gap: 10px;
   margin-top: 6px;
-  max-height: 60vh;
+}
+/* 開いているときは、設定がサイドバーの残りを使う（収まらない小さい画面だけ、この中でスクロール） */
+.settings.open {
+  flex: 1;
+  border-top: 0;
+  padding-top: 0;
+}
+.settings.open .settings-body {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  margin-top: 0;
+}
+.settings-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.settings-back {
+  align-self: flex-start;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12.5px;
+}
+.settings-back:hover {
+  background: var(--hover);
+}
+.settings-title {
+  font-size: 14px;
+  font-weight: 700;
+  padding: 0 4px;
+}
+.new-buttons[hidden],
+.map-list[hidden] {
+  display: none;
 }
 .settings-body[hidden] {
   display: none;
