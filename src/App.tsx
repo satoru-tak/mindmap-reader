@@ -255,13 +255,6 @@ function Toolbar() {
         <button onClick={s.openSearch} title={`マップ内を検索 (${MOD}+F)`}>
           検索
         </button>
-        <span className="sep" />
-        <button onClick={s.goHome} title="中心に戻る (H)">
-          中心へ
-        </button>
-        <button onClick={s.requestFit} title="全体を表示">
-          全体表示
-        </button>
       </div>
     </header>
   )

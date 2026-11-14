@@ -4,7 +4,6 @@ import {
   Position,
   Background,
   BackgroundVariant,
-  Controls,
   ReactFlow,
   useNodesState,
   useReactFlow,
@@ -517,8 +516,7 @@ export default function Canvas() {
           size={1}
           color="var(--grid)"
         />
-        <Controls showInteractive={false} position="bottom-right" />
-        <ZoomBadge />
+        <ViewControls />
       </ReactFlow>
       <DragHint />
       <SearchBar />
@@ -555,12 +553,47 @@ function DragHint() {
   return <div className={`drag-hint ${kind}`}>{text}</div>
 }
 
-/** 画面の右下に、今の倍率を出す */
-function ZoomBadge() {
+/**
+ * 画面の右下の「表示の操作」：中心へ・全体表示・縮小・倍率・拡大（docs/specs/07-features.md）
+ * 見え方を変える操作は、地図アプリと同じく右下にまとめる。
+ */
+function ViewControls() {
   const { zoom } = useViewport()
+  const { zoomIn, zoomOut, getViewport, setViewport } = useReactFlow()
+  const s = useStore.getState()
+  const wrapperOf = (el: HTMLElement | null) => el?.closest('.canvas') as HTMLElement | null
   return (
-    <div className="zoom-badge" title="今の倍率（最初の倍率は「⚙ 設定」で変えられます）">
-      {Math.round(zoom * 100)}%
+    <div className="view-controls" onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
+      <button onClick={s.goHome} title="タイトルを選んで、画面の真ん中に (H)">
+        中心へ
+      </button>
+      <button onClick={s.requestFit} title="マップ全体を画面に収める">
+        全体表示
+      </button>
+      <span className="sep" />
+      <button onClick={() => zoomOut({ duration: DURATION })} title="縮小（マウスのスクロールでも）" aria-label="縮小">
+        −
+      </button>
+      <button
+        className="zoom-badge"
+        title="今の倍率。押すと「最初の倍率」に戻す"
+        onClick={(e) => {
+          // 画面の真ん中を保ったまま、最初の倍率に戻す
+          const el = wrapperOf(e.currentTarget)
+          if (!el) return
+          const r = el.getBoundingClientRect()
+          const v = getViewport()
+          const cx = (r.width / 2 - v.x) / v.zoom
+          const cy = (r.height / 2 - v.y) / v.zoom
+          const z = getDefaultZoom()
+          setViewport({ x: r.width / 2 - cx * z, y: r.height / 2 - cy * z, zoom: z }, { duration: DURATION })
+        }}
+      >
+        {Math.round(zoom * 100)}%
+      </button>
+      <button onClick={() => zoomIn({ duration: DURATION })} title="拡大" aria-label="拡大">
+        ＋
+      </button>
     </div>
   )
 }

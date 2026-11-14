@@ -160,7 +160,7 @@ function Settings() {
         </span>
         <span className="settings-label">
           設定
-          <span className="settings-sub">ファイル・テーマ・明るさ・倍率</span>
+          <span className="settings-sub">ファイル・見た目・倍率</span>
         </span>
         <span className="settings-chev" aria-hidden>
           {open ? '▾' : '▸'}

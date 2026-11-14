@@ -1092,6 +1092,27 @@ test('開いたときの表示：「最初の倍率」を80%にすると、新�
   eq(await p.locator('.zoom-seg [aria-checked="true"]').textContent(), '80%', '設定が残る')
 })
 
+test('表示の操作（右下）：中心へ・全体表示・縮小・拡大、倍率を押すと最初の倍率に戻る。ツールバーは1段', async (p) => {
+  await p.setViewportSize({ width: 1280, height: 760 })
+  await pause(p, 200)
+  const rows = await p.locator('.toolbar').evaluate((el) => Math.round(el.getBoundingClientRect().height))
+  eq(rows < 60, true, `ツールバーが1段に収まる（高さ ${rows}px）`)
+  eq(await p.locator('.toolbar >> text=中心へ').count(), 0, '中心へはツールバーにない')
+  const vc = p.locator('.view-controls')
+  await vc.locator('text=＋').click()
+  await pause(p, 300)
+  eq(await zoomText(p) !== '100%', true, '＋で拡大')
+  await vc.locator('.zoom-badge').click()
+  await pause(p, 300)
+  eq(await zoomText(p), '100%', '倍率を押すと最初の倍率に戻る')
+  await vc.locator('text=−').click()
+  await pause(p, 300)
+  eq(await zoomText(p) !== '100%', true, '−で縮小')
+  await click(p, '要点')
+  await vc.locator('text=中心へ').click()
+  eq(await h.selected(p), '本のタイトル', '中心へでタイトルを選ぶ')
+})
+
 test('新しいマップ：読書 / シンプル、削除', async (p) => {
   await p.click('text=＋ シンプルマップ')
   await p.keyboard.type('考え')
