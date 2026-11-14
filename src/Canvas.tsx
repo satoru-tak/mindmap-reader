@@ -8,6 +8,7 @@ import {
   ReactFlow,
   useNodesState,
   useReactFlow,
+  useViewport,
   useUpdateNodeInternals,
   type Edge,
   type EdgeProps,
@@ -22,6 +23,7 @@ import type { Side } from './types'
 import { H_GAP, layoutTree, V_GAP } from './layout'
 import MindNode, { type MindFlowNode } from './MindNode'
 import SidePicker from './SidePicker'
+import { getDefaultZoom, getView, saveView } from './viewMemory'
 import { FocusBanner, MemoPanel, SearchBar } from './Panels'
 import { branchColor, useTheme } from './theme'
 import type { NodeRecord } from './types'
@@ -267,11 +269,81 @@ export default function Canvas() {
 
   const shownNodes = useMemo(() => (ghost ? [...nodes, ghost] : nodes), [nodes, ghost])
 
-  // Fit when switching maps or on request.
+  // 「全体表示」ボタン・集中モードの解除のときだけ、全体を画面に収める
+  const firstFit = useRef(true)
   useEffect(() => {
+    if (firstFit.current) {
+      firstFit.current = false
+      return
+    }
     const t = setTimeout(() => fitView({ padding: 0.25, duration: DURATION, maxZoom: 1.2 }), 30)
     return () => clearTimeout(t)
-  }, [fitToken, map?.id, fitView])
+  }, [fitToken, fitView])
+
+  /*
+   * マップを開いたとき（docs/specs/02-layout.md「マップを開いたときの表示」）
+   *  - 一度開いたマップ：前回の場所・倍率・選んでいた項目に戻す
+   *  - 初めて：最初の倍率で。全体が収まるなら全体を真ん中に、収まらないならタイトルを真ん中に
+   */
+  const flowNodesRef = useRef(flowNodes)
+  flowNodesRef.current = flowNodes
+  /** 戻した直後は「選んだ項目を画面に入れる」動きを1回止める（戻した場所から動かないように） */
+  const skipFollow = useRef(false)
+  useEffect(() => {
+    if (!map) return
+    const id = map.id
+    const t = setTimeout(() => {
+      const st = useStore.getState()
+      const v = getView(id)
+      if (v) {
+        skipFollow.current = true
+        if (v.sel && st.maps[id]?.nodes[v.sel] && !st.editingId) st.select(v.sel)
+        setCenter(v.cx, v.cy, { zoom: v.zoom, duration: 0 })
+        return
+      }
+      const ns = flowNodesRef.current
+      if (!ns.length || !wrapper.current) return
+      const z = getDefaultZoom()
+      let minX = Infinity
+      let minY = Infinity
+      let maxX = -Infinity
+      let maxY = -Infinity
+      for (const f of ns) {
+        minX = Math.min(minX, f.position.x)
+        minY = Math.min(minY, f.position.y)
+        maxX = Math.max(maxX, f.position.x + (f.width ?? 0))
+        maxY = Math.max(maxY, f.position.y + (f.height ?? 0))
+      }
+      const rect = wrapper.current.getBoundingClientRect()
+      const fits = (maxX - minX) * z <= rect.width * 0.9 && (maxY - minY) * z <= rect.height * 0.9
+      const root = ns.find((f) => f.id === st.maps[id]?.rootId)
+      const [cx, cy] =
+        fits || !root
+          ? [(minX + maxX) / 2, (minY + maxY) / 2]
+          : [root.position.x + (root.width ?? 0) / 2, root.position.y + (root.height ?? 0) / 2]
+      setCenter(cx, cy, { zoom: z, duration: 0 })
+      saveView(id, { cx, cy, zoom: z, sel: st.selectedId ?? undefined })
+    }, 30)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map?.id])
+
+  // 選んでいる項目を覚える
+  useEffect(() => {
+    if (map && selectedId) saveView(map.id, { sel: selectedId })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId])
+
+  /** 画面を動かし終えた・拡大縮小し終えたら、真ん中の場所と倍率を覚える */
+  const onMoveEnd = useCallback(
+    (_e: unknown, vp: { x: number; y: number; zoom: number }) => {
+      const id = useStore.getState().currentMapId
+      if (!id || !wrapper.current) return
+      const rect = wrapper.current.getBoundingClientRect()
+      saveView(id, { cx: (rect.width / 2 - vp.x) / vp.zoom, cy: (rect.height / 2 - vp.y) / vp.zoom, zoom: vp.zoom })
+    },
+    [],
+  )
 
   // 集中モードに入ったら、その枝が画面に収まるように表示する
   useEffect(() => {
@@ -301,6 +373,10 @@ export default function Canvas() {
 
   // Keep the selected node on screen while moving with the keyboard / adding nodes.
   useEffect(() => {
+    if (skipFollow.current) {
+      skipFollow.current = false
+      return
+    }
     if (!selectedId || !wrapper.current) return
     const n = flowNodes.find((f) => f.id === selectedId)
     if (!n) return
@@ -432,6 +508,7 @@ export default function Canvas() {
         zoomOnDoubleClick={false}
         minZoom={0.2}
         maxZoom={2}
+        onMoveEnd={onMoveEnd}
       >
         <Background
           key={look.grid}
@@ -441,6 +518,7 @@ export default function Canvas() {
           color="var(--grid)"
         />
         <Controls showInteractive={false} position="bottom-right" />
+        <ZoomBadge />
       </ReactFlow>
       <DragHint />
       <SearchBar />
@@ -475,4 +553,14 @@ function DragHint() {
     kind = 'ok'
   }
   return <div className={`drag-hint ${kind}`}>{text}</div>
+}
+
+/** 画面の右下に、今の倍率を出す */
+function ZoomBadge() {
+  const { zoom } = useViewport()
+  return (
+    <div className="zoom-badge" title="今の倍率（最初の倍率は「⚙ 設定」で変えられます）">
+      {Math.round(zoom * 100)}%
+    </div>
+  )
 }

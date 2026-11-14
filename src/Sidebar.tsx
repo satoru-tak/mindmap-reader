@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useStore } from './store'
 import { exportAll, FileMenu } from './FileActions'
 import { BackupReminder } from './Panels'
+import { setDefaultZoom, useDefaultZoom, ZOOM_CHOICES } from './viewMemory'
 import { LOOKS, setLook, setThemePref, useTheme, type ThemePref } from './theme'
 
 const fmt = (t: number) =>
@@ -159,7 +160,7 @@ function Settings() {
         </span>
         <span className="settings-label">
           設定
-          <span className="settings-sub">ファイル・テーマ・明るさ</span>
+          <span className="settings-sub">ファイル・テーマ・明るさ・倍率</span>
         </span>
         <span className="settings-chev" aria-hidden>
           {open ? '▾' : '▸'}
@@ -169,6 +170,7 @@ function Settings() {
         <FileMenu />
         <LookPicker />
         <ThemeSwitch />
+        <ZoomSwitch />
       </div>
     </div>
   )
@@ -204,4 +206,28 @@ function useTitleTip() {
       )
     : null
   return { show, hide, node }
+}
+
+/** 初めて開くマップの倍率（一度開いたマップは、前回の倍率で開く） */
+function ZoomSwitch() {
+  const zoom = useDefaultZoom()
+  return (
+    <div className="theme-switch">
+      <div className="file-menu-title">最初の倍率</div>
+      <div className="seg zoom-seg" role="radiogroup" aria-label="最初の倍率">
+        {ZOOM_CHOICES.map((z) => (
+          <button
+            key={z}
+            role="radio"
+            aria-checked={zoom === z}
+            className={zoom === z ? 'on' : ''}
+            title="初めて開くマップの倍率。一度開いたマップは、前回見ていた倍率で開きます"
+            onClick={() => setDefaultZoom(z)}
+          >
+            {Math.round(z * 100)}%
+          </button>
+        ))}
+      </div>
+    </div>
+  )
 }

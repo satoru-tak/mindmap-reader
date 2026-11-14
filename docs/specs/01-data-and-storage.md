@@ -49,6 +49,8 @@
 | `mindmap-reader:last-backup` | 最後に「すべてバックアップ」した日時 |
 | `mindmap-reader:backup-snooze` | バックアップのお知らせを次に出してよい日時 |
 | `mindmap-reader:first-seen` | 使い始めた日時 |
+| `mindmap-reader:views` | マップごとの、前回見ていた場所・倍率・選んでいた項目（→ 02） |
+| `mindmap-reader:default-zoom` | 初めて開くマップの倍率（→ 02） |
 
 ### 注意（決めた理由）
 

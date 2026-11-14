@@ -1039,6 +1039,59 @@ test('左右の枝（ノートのテーマ）：左側でも線と下線がつ�
   await p.click('[data-look-id="simple"]')
 })
 
+// ---------- マップを開いたときの表示 ----------
+const viewport = (p) => p.evaluate(() => document.querySelector('.react-flow__viewport').style.transform)
+const zoomText = (p) => p.locator('.zoom-badge').textContent()
+
+test('開いたときの表示：初めてのマップは最初の倍率（100%）、全体表示で毎回縮めない', async (p) => {
+  await buildSimple(p, '大きなマップ', [...BRANCHES, ...BRANCHES.map(([t, k]) => [t + '2', k]), ...BRANCHES.map(([t, k]) => [t + '3', k])])
+  await p.click('.map-list >> text=本のタイトル')
+  await pause(p, 300)
+  await p.click('.map-list >> text=大きなマップ')
+  await pause(p, 300)
+  eq(await zoomText(p), '100%', '大きなマップでも、前回の倍率（初回は100%）のまま')
+})
+
+test('開いたときの表示：切り替えて戻ると、前回の場所・倍率・選んでいた項目に戻る（再読み込みでも）', async (p) => {
+  await buildSimple(p, '今週', BRANCHES)
+  await click(p, '会議')
+  // 動かして、拡大する
+  await p.mouse.move(800, 500)
+  await p.mouse.down()
+  await p.mouse.move(650, 420, { steps: 8 })
+  await p.mouse.up()
+  await p.mouse.wheel(0, -200)
+  await pause(p, 600)
+  const before = await viewport(p)
+  const zoom = await zoomText(p)
+  await p.click('.map-list >> text=本のタイトル')
+  await pause(p, 300)
+  await p.click('.map-list >> text=今週')
+  await pause(p, 400)
+  eq(await viewport(p), before, '場所と倍率が戻る')
+  eq(await zoomText(p), zoom, '倍率の表示も同じ')
+  eq(await h.selected(p), '会議', '選んでいた項目も戻る')
+  await p.reload()
+  await p.waitForSelector('.mind-node')
+  await pause(p, 400)
+  eq(await zoomText(p), zoom, '再読み込みしても倍率が戻る')
+  eq(await h.selected(p), '会議', '再読み込みしても選んでいた項目が戻る')
+})
+
+test('開いたときの表示：「最初の倍率」を80%にすると、新しいマップは80%で開く', async (p) => {
+  await openSettings(p)
+  await p.click('.zoom-seg >> text=80%')
+  await p.click('text=＋ シンプルマップ')
+  await p.keyboard.type('新しい')
+  await p.keyboard.press('Enter')
+  await pause(p, 300)
+  eq(await zoomText(p), '80%', '80%で開く')
+  await p.reload()
+  await p.waitForSelector('.mind-node')
+  await openSettings(p)
+  eq(await p.locator('.zoom-seg [aria-checked="true"]').textContent(), '80%', '設定が残る')
+})
+
 test('新しいマップ：読書 / シンプル、削除', async (p) => {
   await p.click('text=＋ シンプルマップ')
   await p.keyboard.type('考え')

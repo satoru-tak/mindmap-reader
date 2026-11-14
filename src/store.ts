@@ -3,6 +3,7 @@ import { defaultLayout, type BranchLayout, type MapMode, type MindMap, type Mind
 import { getPreloaded, saveState } from './storage'
 import { normalizePage } from './page'
 import { toClip, type Clip } from './clipboard'
+import { forgetView, getView } from './viewMemory'
 
 const HISTORY_LIMIT = 100
 
@@ -232,6 +233,13 @@ function addClip(nodes: NodeRecord, clip: Clip, parentId: string): string {
 const initial = getPreloaded()
 const firstMap = createMapFromTemplate('reading')
 const initialMaps = initial && Object.keys(initial.maps).length ? initial.maps : { [firstMap.id]: firstMap }
+/** マップを開いたときに選ぶ項目：前回選んでいた項目（残っていれば）、なければタイトル */
+const openSelection = (map: MindMap | undefined): string | null => {
+  if (!map) return null
+  const sel = getView(map.id)?.sel
+  return sel && map.nodes[sel] ? sel : map.rootId
+}
+
 const initialCurrent =
   initial?.currentMapId && initialMaps[initial.currentMapId]
     ? initial.currentMapId
@@ -297,7 +305,7 @@ export const useStore = create<State>((set, get) => {
   return {
     maps: initialMaps,
     currentMapId: initialCurrent,
-    selectedId: initialMaps[initialCurrent]?.rootId ?? null,
+    selectedId: openSelection(initialMaps[initialCurrent]),
     editingId: null,
     past: [],
     future: [],
@@ -409,7 +417,6 @@ export const useStore = create<State>((set, get) => {
           editingId: null,
           past: [],
           future: [],
-          fitToken: s.fitToken + 1,
         }
       })
     },
@@ -429,7 +436,6 @@ export const useStore = create<State>((set, get) => {
         editCaretEnd: false,
         past: [],
         future: [],
-        fitToken: s.fitToken + 1,
       }))
     },
 
@@ -437,17 +443,17 @@ export const useStore = create<State>((set, get) => {
       set((s) => ({
         sidebarOpen: false,
         currentMapId: id,
-        selectedId: s.maps[id]?.rootId ?? null,
+        selectedId: openSelection(s.maps[id]),
         editingId: null,
         past: [],
         future: [],
-        fitToken: s.fitToken + 1,
         focusId: null,
         search: { open: false, query: '', hits: [], index: 0 },
       })),
 
     deleteMap: (id) =>
       set((s) => {
+        forgetView(id)
         const maps = { ...s.maps }
         delete maps[id]
         if (!Object.keys(maps).length) {
@@ -462,7 +468,6 @@ export const useStore = create<State>((set, get) => {
           editingId: null,
           past: s.currentMapId === id ? [] : s.past,
           future: s.currentMapId === id ? [] : s.future,
-          fitToken: s.fitToken + 1,
         }
       }),
 
