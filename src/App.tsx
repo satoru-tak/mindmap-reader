@@ -361,7 +361,6 @@ function ReadingBar() {
             }}
           />
         </span>
-        {!editable && <span className="hint">項目を選ぶと、種類とページを設定できます</span>}
       </div>
       <button className="chapter-btn" onClick={s.addChapter} title="C で追加">
         ＋ 章を追加

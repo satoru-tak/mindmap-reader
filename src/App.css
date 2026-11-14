@@ -618,10 +618,6 @@
   outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
   border-color: var(--accent);
 }
-.reading-fields .hint {
-  color: var(--muted);
-  font-size: 12px;
-}
 .chapter-btn {
   border: 1px solid var(--green-border);
   background: var(--green-soft);

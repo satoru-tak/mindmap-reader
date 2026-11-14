@@ -1141,6 +1141,15 @@ test('⚙ 設定：編集ボタンを隠す / 表示する（再読み込みし�
   eq(await p.locator('.toolbar >> text=→ 詳しく').count(), 1, '表示に戻せる')
 })
 
+test('読書モードの帯：案内文は出さず、項目を選んでいないときは欄が薄い', async (p) => {
+  await p.mouse.click(1100, 650)
+  await pause(p, 100)
+  eq(await p.locator('.reading-bar >> text=項目を選ぶと').count(), 0, '案内文は出ない')
+  eq(await p.locator('.reading-fields.disabled').count(), 1, '選んでいないときは欄が薄い')
+  await click(p, '要点')
+  eq(await p.locator('.reading-fields.disabled').count(), 0, '項目を選ぶと使える')
+})
+
 test('新しいマップ：読書 / シンプル、削除', async (p) => {
   await p.click('text=＋ シンプルマップ')
   await p.keyboard.type('考え')
