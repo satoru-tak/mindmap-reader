@@ -313,6 +313,17 @@
 .collapse-btn {
   font-variant-numeric: tabular-nums;
 }
+/*
+ * たたんだときの数字を丸の真ん中に置く。日本語の文字（ヒラギノなど）は上下の余白が
+ * 均等でなく、数字が少し下に寄って見えるため、数字だけ英数字用の文字にし、
+ * 対応しているブラウザでは数字の上下の余白を切り落とす（text-box）
+ */
+.collapse-btn .count {
+  display: block;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1;
+  text-box: trim-both cap alphabetic;
+}
 .mind-handle {
   opacity: 0;
   pointer-events: none;
