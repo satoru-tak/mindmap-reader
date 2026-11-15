@@ -1226,6 +1226,48 @@ test('狭い画面：☰ でマップ一覧を開き、選ぶと閉じる / 操�
   eq(await p.locator('.help').isVisible(), true, '操作方法が見られる')
 })
 
+test('操作方法：動作名が先・キーが右 / 吹き出しで説明 / 検索で絞り込む', async (p) => {
+  await p.click('.help-toggle')
+  const first = p.locator('.help-row').first()
+  eq(await first.locator('.help-action').innerText(), '詳しい項目を追加', '動作名が左')
+  eq(await first.locator('kbd').innerText(), 'Tab', 'キーが右')
+  eq(await p.evaluate(() => document.activeElement?.className ?? ''), '', '開いても検索欄に入力カーソルを置かない')
+  // ホバーで吹き出し
+  await first.hover()
+  await pause(p, 450)
+  eq(await p.locator('.help-tip').innerText(), '掘り下げた項目（子）を追加する。入力中でも使える', '説明が吹き出しで出る')
+  await p.mouse.move(900, 700)
+  await pause(p, 100)
+  eq(await p.locator('.help-tip').count(), 0, '離れると消える')
+  // 行をクリックしてもマップのキー操作は奪わない
+  await first.click()
+  const before = await h.selected(p)
+  await p.keyboard.press('ArrowRight')
+  await pause(p, 100)
+  eq((await h.selected(p)) !== before, true, 'クリック後も矢印キーでマップが動く')
+  // 検索
+  await p.fill('.help-search', 'コピー')
+  eq(await p.locator('.help-row').count(), 1, '動作名で絞り込める')
+  await p.fill('.help-search', 'tab')
+  eq(await p.locator('.help-row').count(), 2, 'キー名でも探せる（大文字小文字を区別しない）')
+  await p.fill('.help-search', '向きが逆')
+  eq(await p.locator('.help-action').first().innerText(), 'まとめ側 ／ 詳しい側へ', '説明文でも探せる')
+  await p.fill('.help-search', 'ctrl d')
+  eq(await p.locator('.help-action').allInnerTexts(), ['複製'], 'cmd/ctrl の呼び名で探せる')
+  await p.fill('.help-search', 'ぬぬぬ')
+  eq(await p.locator('.help-empty').isVisible(), true, '見つからないとき')
+  eq(await p.locator('.help h3').count(), 0, '空の分類は隠す')
+  // 検索欄で Tab を押しても項目は増えない（マップの操作をしない）
+  const n = await p.locator('.mind-node').count()
+  await p.keyboard.press('Escape')
+  eq(await p.inputValue('.help-search'), '', 'Esc で文字を消す')
+  await p.keyboard.press('Tab')
+  eq(await p.locator('.mind-node').count(), n, '一覧の中の Tab では項目を追加しない')
+  await p.focus('.help-search')
+  await p.keyboard.press('Escape')
+  eq(await p.evaluate(() => document.activeElement?.classList.contains('help-search')), false, '空なら Esc で検索欄から抜ける')
+})
+
 // =====================================================================
 // runner
 // =====================================================================

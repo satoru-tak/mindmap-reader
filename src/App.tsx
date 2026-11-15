@@ -5,6 +5,7 @@ import Canvas from './Canvas'
 import Sidebar from './Sidebar'
 import { DropZone, exportCurrent, openFilePicker, Toast } from './FileActions'
 import { layoutOf, useStore } from './store'
+import Help from './Help'
 import { toggleSidebar, useShowEditButtons, useSidebarCollapsed } from './prefs'
 import { clipsForPaste, getInternalClips, setInternalClip, toClip, toOutline } from './clipboard'
 import { MODE_LABEL, type BranchLayout, type MapMode } from './types'
@@ -13,7 +14,6 @@ import './App.css'
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 const MOD = isMac ? '⌘' : 'Ctrl'
-const ALT = isMac ? 'Option' : 'Alt'
 
 function focusPageInput() {
   const el = document.getElementById('page-input') as HTMLInputElement | null
@@ -49,7 +49,7 @@ function useKeyboard() {
     const onKey = (e: KeyboardEvent) => {
       const s = useStore.getState()
       const t = e.target as HTMLElement
-      if (s.editingId || t.closest('input, textarea, [contenteditable="true"]')) return
+      if (s.editingId || t.closest('input, textarea, [contenteditable="true"], .help')) return
       if (e.isComposing) return
       const mod = e.metaKey || e.ctrlKey
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key
@@ -374,107 +374,6 @@ function ReadingBar() {
         ＋ 章を追加
       </button>
     </div>
-  )
-}
-
-function Help() {
-  const open = useStore((s) => s.helpOpen)
-  const setOpen = useStore.getState().setHelpOpen
-  if (!open)
-    return (
-      <button className="help-toggle" onClick={() => setOpen(true)}>
-        ? 操作方法
-      </button>
-    )
-  return (
-    <aside className="help">
-      <div className="help-head">
-        <strong>操作方法</strong>
-        <button onClick={() => setOpen(false)} aria-label="閉じる">
-          ×
-        </button>
-      </div>
-      <div className="help-body">
-        <h3>追加・編集</h3>
-        <dl>
-          <dt>Tab</dt>
-          <dd>詳しく：掘り下げた項目を追加（入力中でも可）</dd>
-          <dt>Enter</dt>
-          <dd>並べて：同じ並びの下に追加 ／ 入力を確定</dd>
-          <dt>Shift+Enter</dt>
-          <dd>並べて：同じ並びの上に追加（入力中は改行）</dd>
-          <dt>{MOD}+Enter</dt>
-          <dd>まとめる：上にまとめの見出しを追加</dd>
-          <dt>Space / F2</dt>
-          <dd>編集（ダブルクリックでも可）</dd>
-          <dt>Esc</dt>
-          <dd>入力を取り消し（空の項目は消えて元の項目に戻る）</dd>
-          <dt>空のまま Tab</dt>
-          <dd>Enter を押し間違えたら：今追加した空の項目を「詳しく」に変更（Shift+Tab で逆）</dd>
-          <dt>Delete</dt>
-          <dd>削除</dd>
-          <dt>M</dt>
-          <dd>選んだ項目のメモを開く・閉じる（メモがある項目には ≡ の印）。書いているときは Esc か {MOD}+Enter で閉じる</dd>
-        </dl>
-        <h3>選択の移動</h3>
-        <dl>
-          <dt>← / →</dt>
-          <dd>まとめ側へ ／ 詳しい側へ（前にいた項目に戻る）。左側の枝では向きが逆になる</dd>
-          <dt>↑ / ↓</dt>
-          <dd>同じ深さの上下へ（並びをまたぐ）</dd>
-          <dt>{MOD}+↑ / ↓</dt>
-          <dd>深さに関係なく、読む順で前 ／ 次の項目へ</dd>
-          <dt>Shift+←</dt>
-          <dd>枝の先頭へ（もう一度でタイトル）</dd>
-          <dt>Shift+→</dt>
-          <dd>枝の先端へ（来た道をたどる）</dd>
-          <dt>Shift+↑ / ↓</dt>
-          <dd>並びの先頭 ／ 末尾へ</dd>
-          <dt>H / Home</dt>
-          <dd>中心（タイトル）に戻る</dd>
-          <dt>{MOD}+\（¥）</dt>
-          <dd>マップ一覧（サイドバー）を開く・閉じる</dd>
-          <dt>{MOD}+F</dt>
-          <dd>マップ内を検索（メモも）。Enter で次、Shift+Enter で前</dd>
-          <dt>F</dt>
-          <dd>集中モード：選んだ枝だけを表示して、ほかを薄くする（もう一度 F か Esc で解除）</dd>
-        </dl>
-        <h3>並べ替え・整理</h3>
-        <dl>
-          <dt>{ALT}+↑ / ↓</dt>
-          <dd>並びの中で順番を入れ替え</dd>
-          <dt>{ALT}+← / →</dt>
-          <dd>枝をタイトルの左側 ／ 右側へ（左右に広げる形になる）</dd>
-          <dt>ドラッグ</dt>
-          <dd>別の項目に重ねて離すと、その詳しい項目として移動。タイトルの左右どちらで離すかで、置く側も決まる</dd>
-          <dt>/ ・ {MOD}+/</dt>
-          <dd>折りたたみ・展開</dd>
-          <dt>{MOD}+C / X / V</dt>
-          <dd>コピー ／ 切り取り ／ 詳しい項目として貼り付け</dd>
-          <dt>{MOD}+D</dt>
-          <dd>複製</dd>
-          <dt>{MOD}+Z</dt>
-          <dd>元に戻す（Shift付きでやり直す）</dd>
-        </dl>
-        <h3>読書モード</h3>
-        <dl>
-          <dt>Q</dt>
-          <dd>引用 ⇄ 自分の言葉</dd>
-          <dt>P</dt>
-          <dd>ページ番号を入力</dd>
-          <dt>C</dt>
-          <dd>章を追加</dd>
-        </dl>
-        <h3>ファイル</h3>
-        <dl>
-          <dt>{MOD}+Shift+S</dt>
-          <dd>このマップを書き出す</dd>
-          <dt>{MOD}+O</dt>
-          <dd>ファイルを開く（画面にドロップしても可）</dd>
-        </dl>
-      </div>
-      <p className="help-note">「詳しく」は親子の「子」、「並べて」は「兄弟」、「まとめる」は「親」にあたります。<br />保存は自動です。データはこのブラウザ内にだけ保存されるので、ときどき「すべてバックアップ」でファイルに残してください。背景をクリックすると、この一覧は閉じます。</p>
-    </aside>
   )
 }
 

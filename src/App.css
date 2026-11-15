@@ -763,13 +763,97 @@
   letter-spacing: 0.04em;
 }
 .help h3:first-child {
+  margin-top: 10px;
+}
+.help-body > section:first-child h3 {
   margin-top: 2px;
 }
-.help dl {
-  grid-template-columns: 112px minmax(0, 1fr);
+/* 1行 = 1つの動作：左に動作名、右にキー（docs/specs/07-features.md） */
+.help-search {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 6px;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
 }
-.help dd {
+.help-search:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.help-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.help-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 3px 6px;
+  margin: 0 -6px;
+  border-radius: 6px;
+  cursor: default;
+}
+.help-row.has-detail {
+  cursor: help;
+}
+.help-row:hover,
+.help-row:focus-visible {
+  background: var(--hover, rgba(127, 127, 127, 0.1));
+  outline: none;
+}
+.help-action {
+  min-width: 0;
   overflow-wrap: anywhere;
+}
+.help-keys {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 3px;
+  flex-shrink: 0;
+  max-width: 60%;
+}
+.help-combo {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.help-or {
+  color: var(--muted);
+  margin: 0 2px 0 1px;
+}
+.help kbd {
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1;
+  min-width: 12px;
+  text-align: center;
+  padding: 3px 5px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.help kbd.word {
+  border-style: dashed;
+  border-bottom-width: 1px;
+  color: var(--muted);
+}
+.help-empty {
+  margin: 8px 0;
+  color: var(--muted);
+}
+.help-tip.above {
+  transform: translateY(-100%);
 }
 
 /* ---------- Theme switch ---------- */
