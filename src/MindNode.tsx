@@ -111,7 +111,7 @@ function MindNodeView({ id, data, width, height }: NodeProps<MindFlowNode>) {
                   toggleCollapse(id, side)
                 }}
               >
-                {data.rootSides![side].collapsed ? data.rootSides![side].hidden : <span className="minus" aria-hidden />}
+                {data.rootSides![side].collapsed ? data.rootSides![side].hidden : <Minus />}
               </button>
             ),
         )
@@ -125,7 +125,7 @@ function MindNodeView({ id, data, width, height }: NodeProps<MindFlowNode>) {
               toggleCollapse(id)
             }}
           >
-            {data.collapsed ? data.hiddenCount : <span className="minus" aria-hidden />}
+            {data.collapsed ? data.hiddenCount : <Minus />}
           </button>
         )
       )}
@@ -215,3 +215,15 @@ function NodeEditor({
 }
 
 export default memo(MindNodeView)
+
+/**
+ * たたむボタンの「−」。SVG の線で描く（文字だと少し下にずれ、CSS の箱だと
+ * 画面上の位置によって 1px / 2px に丸められて太さが変わって見えるため）
+ */
+function Minus() {
+  return (
+    <svg className="minus" width="10" height="10" viewBox="0 0 10 10" aria-hidden>
+      <line x1="2" y1="5" x2="8" y2="5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  )
+}
