@@ -139,6 +139,9 @@ button {
 
 :root[data-look='note']:not([data-theme='dark']) {
   --bg: #fbfaf5;
+  /* 紙の色（--bg）と引用の背景が同じに見えないよう、蛍光ペンを引いたような黄色に */
+  --quote-bg: #f8eccd;
+  --quote-border: #e2cb94;
   --grid: #efebe0;
   --root-bg: #2c3e5c;
   --root-drop: #3b4f70;
