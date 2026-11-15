@@ -111,7 +111,7 @@ function MindNodeView({ id, data, width, height }: NodeProps<MindFlowNode>) {
                   toggleCollapse(id, side)
                 }}
               >
-                {data.rootSides![side].collapsed ? data.rootSides![side].hidden : '−'}
+                {data.rootSides![side].collapsed ? data.rootSides![side].hidden : <span className="minus" aria-hidden />}
               </button>
             ),
         )
@@ -125,7 +125,7 @@ function MindNodeView({ id, data, width, height }: NodeProps<MindFlowNode>) {
               toggleCollapse(id)
             }}
           >
-            {data.collapsed ? data.hiddenCount : '−'}
+            {data.collapsed ? data.hiddenCount : <span className="minus" aria-hidden />}
           </button>
         )
       )}
