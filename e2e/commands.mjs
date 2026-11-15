@@ -130,6 +130,36 @@ testMod('⌘/Ctrl+Enter：まとめる（親を挿入）', async (p, mod) => {
   eq(await h.kids(p, 'まとめ'), ['引用'], 'まとめの下に引用')
 })
 
+test('まとめるで入れた見出しを空のまま確定すると、元に戻る（Enter / Esc / ボタン）', async (p) => {
+  const rootKids = await h.kids(p, '本のタイトル')
+  const count = () => p.evaluate(() => { const s = window.__mindmap.getState(); return Object.keys(s.maps[s.currentMapId].nodes).length })
+  const n = await count()
+  for (const how of ['Enter', 'Escape']) {
+    await click(p, '第1章')
+    await p.keyboard.press('Control+Enter')
+    eq(await h.editing(p), true, '見出しを入力中')
+    await p.keyboard.press(how)
+    eq(await h.kids(p, '本のタイトル'), rootKids, `${how}：空の見出しは残らない`)
+    eq(await h.kids(p, '第1章'), ['要点', '引用', '気づき'], `${how}：元の項目と中身はそのまま`)
+    eq(await count(), n, `${how}：項目の数も元どおり`)
+    eq(await h.selected(p), '第1章', `${how}：元の項目を選ぶ`)
+  }
+  await click(p, '第1章')
+  await p.click('.toolbar button:has-text("まとめる")')
+  await p.keyboard.press('Enter')
+  eq(await h.kids(p, '本のタイトル'), rootKids, 'ボタンでも同じ')
+  // 空の見出しで Tab を押しても、詳しく / 並べてに変わらない
+  await click(p, '引用')
+  await p.keyboard.press('Control+Enter')
+  await p.keyboard.press('Tab')
+  await p.keyboard.type('まとめ')
+  await p.keyboard.press('Enter')
+  eq(await h.kids(p, 'まとめ'), ['引用'], 'Tab のあとでも、まとめの見出しのまま')
+  // 1回の「元に戻す」で、文字を入れた見出しごと消える
+  await p.keyboard.press('Control+z')
+  eq(await h.kids(p, '第1章'), ['要点', '引用', '気づき'], '元に戻す1回で消える')
+})
+
 test('Enter をタイトルで押す → 詳しくを追加', async (p) => {
   await click(p, '本のタイトル')
   await p.keyboard.press('Enter')

@@ -133,7 +133,7 @@ interface State {
   lastAddedId: string | null
   /** the item that was selected when lastAddedId was created, and how it was added */
   lastAddedFrom: string | null
-  lastAddedKind: 'child' | 'after' | 'before' | null
+  lastAddedKind: 'child' | 'after' | 'before' | 'parent' | null
   /**
    * The just-added item is still empty and the user changes their mind:
    * 'child' (Tab) → make it a detail of the starting item instead,
@@ -528,7 +528,8 @@ export const useStore = create<State>((set, get) => {
         parent.children[parent.children.indexOf(target)] = c.id
         c.children.push(target)
         nodes[target].parentId = c.id
-        return { selectedId: c.id, editingId: c.id, lastAddedId: null, draft: null, editCaretEnd: false }
+        // 空のまま確定したら取り消せるように「今追加した項目」として覚える（元の項目に戻る）
+        return { selectedId: c.id, editingId: c.id, lastAddedId: c.id, lastAddedFrom: target, lastAddedKind: 'parent', draft: null, editCaretEnd: false }
       })
     },
 
@@ -585,7 +586,9 @@ export const useStore = create<State>((set, get) => {
       const map = current()
       if (!map || !map.nodes[id]) return set({ editingId: null, draft: null })
       const n = map.nodes[id]
-      if (!text.trim() && id !== map.rootId && !n.children.length) {
+      // まとめるで入れた見出しは子を持つが、空のまま確定したら同じく取り消す
+      const justWrapped = get().lastAddedKind === 'parent' && get().lastAddedId === id
+      if (!text.trim() && id !== map.rootId && (!n.children.length || justWrapped)) {
         if (get().lastAddedId === id && n.text === '') {
           // cancelled a just-added empty item: go back to the item you started from
           const back = get().lastAddedFrom && map.nodes[get().lastAddedFrom!] ? get().lastAddedFrom : n.parentId
@@ -608,6 +611,7 @@ export const useStore = create<State>((set, get) => {
       const map = current()
       if (!map || !lastAddedId || editingId !== lastAddedId || !lastAddedFrom) return
       if (map.nodes[lastAddedId]?.text !== '') return
+      if (lastAddedKind === 'parent') return // まとめるの見出しは「詳しく / 並べて」に変えない
       if (as === 'child' && lastAddedKind === 'child') return
       if (as === 'sibling' && (lastAddedKind !== 'child' || lastAddedFrom === map.rootId)) return
       const from = lastAddedFrom
