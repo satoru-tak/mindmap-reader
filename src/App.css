@@ -1450,25 +1450,30 @@
 
 /* ---------- 細く目立たないスクロールバー（はみ出したときだけ。マウスを乗せたときに出す） ---------- */
 .map-list,
-.settings.open .settings-body {
+.settings.open .settings-body,
+.help-body {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
 }
 .map-list:hover,
-.settings.open .settings-body:hover {
+.settings.open .settings-body:hover,
+.help-body:hover {
   scrollbar-color: var(--line) transparent;
 }
 .map-list::-webkit-scrollbar,
-.settings-body::-webkit-scrollbar {
+.settings-body::-webkit-scrollbar,
+.help-body::-webkit-scrollbar {
   width: 6px;
 }
 .map-list::-webkit-scrollbar-thumb,
-.settings-body::-webkit-scrollbar-thumb {
+.settings-body::-webkit-scrollbar-thumb,
+.help-body::-webkit-scrollbar-thumb {
   background: transparent;
   border-radius: 3px;
 }
 .map-list:hover::-webkit-scrollbar-thumb,
-.settings-body:hover::-webkit-scrollbar-thumb {
+.settings-body:hover::-webkit-scrollbar-thumb,
+.help-body:hover::-webkit-scrollbar-thumb {
   background: var(--line);
 }
 
