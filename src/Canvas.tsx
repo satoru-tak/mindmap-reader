@@ -542,7 +542,7 @@ function DragHint() {
   if (!drag.targetId) {
     text = '移動先の項目に重ねてください。何もない所で離すと元に戻ります'
   } else if (drag.blocked === 'descendant') {
-    text = '自分より先（詳しい側）にある項目には移動できません'
+    text = '自分の枝の中（自分より外側）にある項目には移動できません'
     kind = 'blocked'
   } else if (drag.blocked === 'same-parent') {
     text = 'すでにこの項目の詳しい項目です（離すと元に戻ります）'

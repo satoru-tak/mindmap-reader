@@ -276,7 +276,7 @@ for (const key of ['Delete', 'Backspace']) {
 // =====================================================================
 // 選択の移動
 // =====================================================================
-test('← →：まとめ側 / 詳しい側（前にいた項目に戻る）', async (p) => {
+test('← →：タイトル側 / 外側（前にいた項目に戻る）', async (p) => {
   await click(p, '引用')
   await p.keyboard.press('ArrowLeft')
   eq(await h.selected(p), '第1章', '← で第1章')
@@ -311,7 +311,7 @@ testMod('⌘/Ctrl+↑↓：深さに関係なく、読む順で前・次の項�
   eq(await h.selected(p), '全体で行動に移すこと', '最後ではそれ以上動かない')
 })
 
-test('Shift+←：枝の先頭 → もう一度でタイトル', async (p) => {
+test('Shift+←：枝の最初 → もう一度でタイトル', async (p) => {
   await click(p, '引用')
   await p.keyboard.press('Tab')
   await p.keyboard.type('深い')
@@ -322,7 +322,7 @@ test('Shift+←：枝の先頭 → もう一度でタイトル', async (p) => {
   eq(await h.selected(p), '本のタイトル', 'タイトル')
 })
 
-test('Shift+→：来た道をたどって枝の先端へ', async (p) => {
+test('Shift+→：来た道をたどって枝の最後へ', async (p) => {
   await click(p, '引用')
   await p.keyboard.press('Tab')
   await p.keyboard.type('深い')
@@ -333,7 +333,7 @@ test('Shift+→：来た道をたどって枝の先端へ', async (p) => {
   eq(await h.selected(p), '深い', '元いた先端に戻る')
 })
 
-test('Shift+↑↓：並びの先頭 / 末尾', async (p) => {
+test('Shift+↑↓：並びの最初 / 最後', async (p) => {
   await click(p, '引用')
   await p.keyboard.press('Shift+ArrowDown')
   eq(await h.selected(p), '気づき', '末尾')
@@ -995,13 +995,13 @@ test('左右の枝：読書マップで Alt+← を押すと、左右に広げ�
   eq(await sideOf(p, '全体の気づき・感想'), 'left', '左へ')
 })
 
-test('左右の枝：左側では ← で詳しい側、→ でまとめ側へ。タイトルから ← で左の枝へ', async (p) => {
+test('左右の枝：左側では ← で外側、→ でタイトル側へ。タイトルから ← で左の枝へ', async (p) => {
   await buildSimple(p, '今週', BRANCHES)
   await click(p, '今週')
   await p.keyboard.press('ArrowLeft')
   eq(await h.selected(p), 'お金', 'タイトルから ← で左の枝（直前にいた枝）')
   await p.keyboard.press('ArrowLeft')
-  eq(await h.selected(p), '家計簿', '← でさらに詳しい側')
+  eq(await h.selected(p), '家計簿', '← でさらに外側')
   await p.keyboard.press('ArrowRight')
   eq(await h.selected(p), 'お金', '→ でまとめ側')
   await p.keyboard.press('ArrowRight')
@@ -1280,8 +1280,8 @@ test('操作方法：動作名が先・キーが右 / 吹き出しで説明 / �
   eq(await p.locator('.help-row').count(), 1, '動作名で絞り込める')
   await p.fill('.help-search', 'tab')
   eq(await p.locator('.help-row').count(), 2, 'キー名でも探せる（大文字小文字を区別しない）')
-  await p.fill('.help-search', '向きが逆')
-  eq(await p.locator('.help-action').first().innerText(), 'まとめ側 ／ 詳しい側へ', '説明文でも探せる')
+  await p.fill('.help-search', '左側の枝')
+  eq(await p.locator('.help-action').first().innerText(), 'タイトル側 ／ 外側へ', '説明文でも探せる')
   await p.fill('.help-search', 'ctrl d')
   eq(await p.locator('.help-action').allInnerTexts(), ['複製'], 'cmd/ctrl の呼び名で探せる')
   await p.fill('.help-search', 'ぬぬぬ')

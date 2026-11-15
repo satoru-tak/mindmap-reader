@@ -151,7 +151,7 @@ interface State {
   /** jump=true (Shift+矢印): 兄弟の端 / 中心 / 枝の先端へ一気に移動 */
   /**
    * none : ← 親 / → 子 / ↑↓ 同じ階層の上下
-   * shift: ← 枝の先頭 / → 枝の先端 / ↑↓ 兄弟の先頭・末尾
+   * shift: ← 枝の最初 / → 枝の最後 / ↑↓ 並びの最初・最後
    * any  : ↑↓ 深さに関係なく、読む順（アウトライン順）で前・次の項目（⌘/Ctrl+↑↓）
    */
   navigate: (dir: Direction, mod?: NavMod) => void
