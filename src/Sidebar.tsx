@@ -4,7 +4,7 @@ import { useStore } from './store'
 import { exportAll, FileMenu } from './FileActions'
 import { BackupReminder } from './Panels'
 import { setDefaultZoom, useDefaultZoom, ZOOM_CHOICES } from './viewMemory'
-import { setShowEditButtons, useShowEditButtons } from './prefs'
+import { setShowEditButtons, toggleSidebar, useShowEditButtons } from './prefs'
 import { LOOKS, setLook, setThemePref, useTheme, type ThemePref } from './theme'
 
 const fmt = (t: number) =>
@@ -25,7 +25,17 @@ export default function Sidebar() {
     <>
     {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
     <nav className={`sidebar${sidebarOpen ? ' open' : ''}`}>
-      <div className="brand">Mindmap Reader</div>
+      <div className="brand-row">
+        <div className="brand">Mindmap Reader</div>
+        <button
+          className="sidebar-close"
+          aria-label="マップ一覧を閉じる"
+          title={`マップ一覧を閉じる (${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+\\)`}
+          onClick={() => toggleSidebar({ open: sidebarOpen, setOpen: setSidebarOpen }, false)}
+        >
+          «
+        </button>
+      </div>
       {settingsOpen && (
         <div className="settings-head">
           <button className="settings-back" onClick={() => setSettingsOpen(false)}>

@@ -5,7 +5,7 @@ import Canvas from './Canvas'
 import Sidebar from './Sidebar'
 import { DropZone, exportCurrent, openFilePicker, Toast } from './FileActions'
 import { layoutOf, useStore } from './store'
-import { useShowEditButtons } from './prefs'
+import { toggleSidebar, useShowEditButtons, useSidebarCollapsed } from './prefs'
 import { clipsForPaste, getInternalClips, setInternalClip, toClip, toOutline } from './clipboard'
 import { MODE_LABEL, type BranchLayout, type MapMode } from './types'
 import { filterPageInput } from './page'
@@ -69,6 +69,9 @@ function useKeyboard() {
           )
         if (key === 'o') return run(openFilePicker)
         if (key === 'f') return run(s.openSearch)
+        // ⌘+\（日本語キーボードの Mac では ¥ のキー）
+        if (key === '\\' || key === '¥' || e.code === 'Backslash' || e.code === 'IntlYen')
+          return run(() => toggleSidebar({ open: s.sidebarOpen, setOpen: s.setSidebarOpen }))
         if (key === 'Home') return run(s.goHome)
         if (!s.selectedId) return
         if (key === 'd') return run(() => s.duplicateNode())
@@ -195,7 +198,12 @@ function Toolbar() {
   return (
     <header className="toolbar">
       <div className="toolbar-title">
-        <button className="menu-btn" aria-label="マップ一覧を開く" onClick={() => s.setSidebarOpen(true)}>
+        <button
+          className="menu-btn"
+          aria-label="マップ一覧を開く"
+          title={`マップ一覧を開く (${MOD}+\\)`}
+          onClick={() => toggleSidebar({ open: s.sidebarOpen, setOpen: s.setSidebarOpen }, true)}
+        >
           ☰
         </button>
         <div className="mode-switch" role="radiogroup" aria-label="モード">
@@ -424,6 +432,8 @@ function Help() {
           <dd>並びの先頭 ／ 末尾へ</dd>
           <dt>H / Home</dt>
           <dd>中心（タイトル）に戻る</dd>
+          <dt>{MOD}+\（¥）</dt>
+          <dd>マップ一覧（サイドバー）を開く・閉じる</dd>
           <dt>{MOD}+F</dt>
           <dd>マップ内を検索（メモも）。Enter で次、Shift+Enter で前</dd>
           <dt>F</dt>
@@ -470,9 +480,10 @@ function Help() {
 
 export default function App() {
   useKeyboard()
+  const sidebarCollapsed = useSidebarCollapsed()
   return (
     <ReactFlowProvider>
-      <div className="app">
+      <div className={`app${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
         <DropZone />
         <Sidebar />
         <main className="main">

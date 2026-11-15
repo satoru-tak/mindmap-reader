@@ -1150,6 +1150,40 @@ test('読書モードの帯：案内文は出さず、項目を選んでいな�
   eq(await p.locator('.reading-fields.disabled').count(), 0, '項目を選ぶと使える')
 })
 
+test('サイドバー：広い画面でも « で閉じ、☰ で開く（再読み込みしても残る）', async (p) => {
+  await p.setViewportSize({ width: 1280, height: 720 })
+  eq(await p.locator('.sidebar').isVisible(), true, '最初は開いている')
+  eq(await p.locator('.menu-btn').isVisible(), false, '☰ は出ない')
+  await p.click('.sidebar-close')
+  eq(await p.locator('.sidebar').isVisible(), false, '« で閉じる')
+  eq(await p.locator('.menu-btn').isVisible(), true, '☰ が出る')
+  await p.reload()
+  await p.waitForSelector('.mind-node')
+  eq(await p.locator('.sidebar').isVisible(), false, '再読み込みしても閉じたまま')
+  await p.click('.menu-btn')
+  eq(await p.locator('.sidebar').isVisible(), true, '☰ で開く')
+})
+
+testMod('サイドバー：⌘/Ctrl+\\ で開く・閉じる', async (p, mod) => {
+  await p.setViewportSize({ width: 1280, height: 720 })
+  await p.mouse.click(1100, 600)
+  await p.keyboard.press(`${mod}+Backslash`)
+  eq(await p.locator('.sidebar').isVisible(), false, '閉じる')
+  await p.keyboard.press(`${mod}+Backslash`)
+  eq(await p.locator('.sidebar').isVisible(), true, '開く')
+})
+
+test('⚙ 設定：高さ 600px の画面でもはみ出さない', async (p) => {
+  await p.setViewportSize({ width: 1280, height: 600 })
+  await openSettings(p)
+  const fit = await p.evaluate(() => {
+    const b = document.querySelector('.settings-body')
+    const sb = document.querySelector('.sidebar')
+    return [b.scrollHeight <= b.clientHeight + 1, sb.scrollHeight <= sb.clientHeight + 1]
+  })
+  eq(fit, [true, true], '設定もサイドバーもはみ出さない')
+})
+
 test('新しいマップ：読書 / シンプル、削除', async (p) => {
   await p.click('text=＋ シンプルマップ')
   await p.keyboard.type('考え')

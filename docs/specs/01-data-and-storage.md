@@ -51,6 +51,7 @@
 | `mindmap-reader:views` | マップごとの、前回見ていた場所・倍率・選んでいた項目（→ 02） |
 | `mindmap-reader:default-zoom` | 初めて開くマップの倍率（→ 02） |
 | `mindmap-reader:edit-buttons` | ツールバーの編集ボタンを出すか（→ 07） |
+| `mindmap-reader:sidebar` | 広い画面でサイドバーを閉じているか（→ 07） |
 
 ### 注意（決めた理由）
 

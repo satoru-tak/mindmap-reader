@@ -1418,3 +1418,79 @@
   padding: 4px 0;
   font-size: 11.5px;
 }
+
+/* ---------- サイドバーの開閉（広い画面） ---------- */
+.brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.sidebar-close {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  border-radius: 7px;
+  padding: 1px 8px;
+  font-size: 16px;
+  line-height: 1.4;
+}
+.sidebar-close:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+@media (min-width: 721px) {
+  .app.sidebar-collapsed .sidebar {
+    display: none;
+  }
+  .app.sidebar-collapsed .menu-btn {
+    display: inline-block;
+  }
+}
+
+/* ---------- 細く目立たないスクロールバー（はみ出したときだけ。マウスを乗せたときに出す） ---------- */
+.map-list,
+.settings.open .settings-body {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.map-list:hover,
+.settings.open .settings-body:hover {
+  scrollbar-color: var(--line) transparent;
+}
+.map-list::-webkit-scrollbar,
+.settings-body::-webkit-scrollbar {
+  width: 6px;
+}
+.map-list::-webkit-scrollbar-thumb,
+.settings-body::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+}
+.map-list:hover::-webkit-scrollbar-thumb,
+.settings-body:hover::-webkit-scrollbar-thumb {
+  background: var(--line);
+}
+
+/* ---------- 設定の高さを詰める ---------- */
+.settings.open .settings-body {
+  gap: 6px;
+}
+.settings.open .file-menu,
+.settings.open .theme-switch {
+  padding-top: 6px;
+}
+.settings.open .file-menu button {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.settings.open .look-list {
+  gap: 3px;
+  margin-bottom: 4px;
+}
+.settings.open .look-item {
+  padding: 4px 8px;
+}
+.settings.open .file-menu-title {
+  margin-bottom: 2px;
+}
